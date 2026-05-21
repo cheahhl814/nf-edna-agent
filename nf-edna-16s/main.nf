@@ -44,34 +44,35 @@ process WRITE_STATE {
     publishDir "${params.results_dir}/${params.run_id}", mode: 'copy', overwrite: true
 
     input:
-    val completed_stages
+    val stages
     val last_stage
 
     output:
     path "pipeline_state.json"
 
     exec:
+    def stageList = stages
     def outputs = [:]
-    if ('qc' in completed_stages)
+    if ('qc' in stageList)
         outputs.trimmed_reads = "${params.results_dir}/${params.run_id}/qc/trimmed/"
-    if ('denoise' in completed_stages) {
+    if ('denoise' in stageList) {
         outputs.asv_table = "${params.results_dir}/${params.run_id}/asv_table/feature-table_renamed.tsv"
         outputs.rep_seqs  = "${params.results_dir}/${params.run_id}/asv_table/rep-seqs_renamed.fna"
     }
-    if ('classify' in completed_stages) {
+    if ('classify' in stageList) {
         outputs.taxonomy  = "${params.results_dir}/${params.run_id}/taxonomy/idtaxa_classification_confident.tsv"
         outputs.asv_counts = "${params.results_dir}/${params.run_id}/taxonomy/agglomerated_data/asv_counts.tsv"
     }
-    if ('diversity' in completed_stages)
+    if ('diversity' in stageList)
         outputs.diversity = "${params.results_dir}/${params.run_id}/diversity/"
-    if ('association' in completed_stages)
+    if ('association' in stageList)
         outputs.association = "${params.results_dir}/${params.run_id}/association/"
 
     def state = [
         run_id           : params.run_id,
         pipeline         : "nf-edna-16s",
         marker           : "16S",
-        completed_stages : completed_stages,
+        completed_stages : stageList,
         last_stage       : last_stage,
         params_used      : [
             primers_fwd : params.primers_fwd,
