@@ -16,6 +16,7 @@ process merge_pairend {
 
 process denoise {
     tag "VSEARCH UNOISE3 ${sample_id}"
+    label 'process_low'
     publishDir "${params.results_dir}/${params.run_id}/asv_table/per_sample/${sample_id}", mode: 'copy', overwrite: false
 
     input:
@@ -70,9 +71,9 @@ process merge_denoise {
     """
     pixi run --manifest-path ${baseDir}/env/denoise/pixi.toml \
         Rscript ${baseDir}/bin/merge_tables.R \
-        --input_files ${tables.join(' ')} --output_table feature-table.tsv
+        --input_files ${tables} --output_table feature-table.tsv
 
-    cat ${fastas.join(' ')} > rep-seqs.fna
+    cat ${fastas} > rep-seqs.fna
     awk 'BEGIN{FS=OFS="\\t"} {gsub(/:/,"_",\$1); print}' feature-table.tsv > feature-table_renamed.tsv
     sed '/^>/s/:/_/g' rep-seqs.fna > rep-seqs_renamed.fna
     """

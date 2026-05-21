@@ -1,5 +1,6 @@
 process tree {
     tag "Phylogenetic tree"
+    label 'process_medium'
     publishDir "${params.results_dir}/${params.run_id}/diversity/phylogenetic_tree", mode: 'copy', overwrite: false
 
     input:

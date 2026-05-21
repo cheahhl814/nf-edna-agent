@@ -19,7 +19,7 @@ process differential_abundance {
         --input_metadata ${metadata} --output_dir . \
         --level_to_analyze "${params.daa_level}" \
         --fixed_effect_variable "${params.grouping_variable}" \
-        --top_n_taxa_plot 20 --reference_level "${params.reference_level}"
+        --top_n_taxa_plot ${params.top_n_taxa_plot} --reference_level "${params.reference_level}"
     """
 }
 
