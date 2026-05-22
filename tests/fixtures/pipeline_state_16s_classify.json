@@ -1,0 +1,21 @@
+{
+  "run_id": "16s-20260521-siteA",
+  "pipeline": "nf-edna-16s",
+  "marker": "16S",
+  "completed_stages": ["qc", "denoise", "classify"],
+  "last_stage": "classify",
+  "params_used": {
+    "primers_fwd": "CCTACGGGNGGCWGCAG",
+    "primers_rev": "GACTACNVGGGTWTCTAATCC",
+    "min_length": 350,
+    "max_length": 550,
+    "kingdoms": "Bacteria,Archaea"
+  },
+  "outputs": {
+    "trimmed_reads": "results/16s-20260521-siteA/qc/trimmed/",
+    "asv_table":  "results/16s-20260521-siteA/asv_table/feature-table_renamed.tsv",
+    "rep_seqs":   "results/16s-20260521-siteA/asv_table/rep-seqs_renamed.fna",
+    "taxonomy":   "results/16s-20260521-siteA/taxonomy/idtaxa_classification_confident.tsv",
+    "asv_counts": "results/16s-20260521-siteA/taxonomy/agglomerated_data/asv_counts.tsv"
+  }
+}

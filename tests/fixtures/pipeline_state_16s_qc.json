@@ -1,0 +1,17 @@
+{
+  "run_id": "16s-20260521-siteA",
+  "pipeline": "nf-edna-16s",
+  "marker": "16S",
+  "completed_stages": ["qc"],
+  "last_stage": "qc",
+  "params_used": {
+    "primers_fwd": "CCTACGGGNGGCWGCAG",
+    "primers_rev": "GACTACNVGGGTWTCTAATCC",
+    "min_length": 350,
+    "max_length": 550,
+    "kingdoms": "Bacteria,Archaea"
+  },
+  "outputs": {
+    "trimmed_reads": "results/16s-20260521-siteA/qc/trimmed/"
+  }
+}
