@@ -51,7 +51,9 @@ process biom2tsv {
     script:
     """
     pixi run --manifest-path ${baseDir}/env/denoise/pixi.toml \
-        biom convert -i ${biom} -o ${sample_id}.table.tsv --to-tsv
+        biom convert -i ${biom} -o ${sample_id}.table.tsv --to-tsv \
+    || printf '# Constructed from biom file\n#OTU ID\t${sample_id}\n' \
+        > ${sample_id}.table.tsv
     """
 }
 
@@ -91,21 +93,46 @@ process decontam {
     output:
     path "decontam_asv_table.tsv", emit: table
     path "decontam_rep_seqs.fna",  emit: fasta
+    path "decontam_summary.tsv",   emit: summary
 
     script:
     """
     pixi run --manifest-path ${baseDir}/env/pixi.toml \
         julia ${baseDir}/bin/decontam.jl \
-        --asv_table ${asv_table} --metadata ${metadata} \
-        --output_table decontam_asv_table.tsv \
+        --feature_table ${asv_table} \
+        --metadata ${metadata} \
+        --rep_seqs ${rep_seqs} \
+        --output_cleaned_table decontam_asv_table.tsv \
+        --output_cleaned_rep_seqs decontam_rep_seqs.fna \
+        --output_contaminants_summary decontam_summary.tsv \
         --threshold ${params.decontam_threshold} \
-        --neg_col ${params.neg_col} \
-        --filter_condition "${params.filter_condition}"
+        --neg_control_column ${params.neg_col}
+    """
+    }
 
-    # Re-filter rep-seqs to match surviving ASVs
-    tail -n +2 decontam_asv_table.tsv | awk '{print \$1}' > surviving_ids.txt
-    pixi run --manifest-path ${baseDir}/env/classification/pixi.toml \
-        seqtk subseq ${rep_seqs} surviving_ids.txt > decontam_rep_seqs.fna
+process filter_table {
+    tag "Filter negative controls from ASV table"
+    publishDir "${params.results_dir}/${params.run_id}/asv_table", mode: 'copy', overwrite: false
+
+    input:
+    path asv_table
+    path rep_seqs
+    path metadata
+
+    output:
+    path "filtered_asv_table.tsv", emit: table
+    path "filtered_rep_seqs.fna",  emit: fasta
+
+    script:
+    """
+    pixi run --manifest-path ${baseDir}/env/pixi.toml \
+        julia ${baseDir}/bin/filter_table.jl \
+        --feature_table ${asv_table} \
+        --rep_seqs ${rep_seqs} \
+        --metadata ${metadata} \
+        --filter_condition "${params.filter_condition}" \
+        --output_table filtered_asv_table.tsv \
+        --output_rep_seqs filtered_rep_seqs.fna
     """
 }
 
@@ -140,7 +167,13 @@ workflow DENOISE {
         metadata
     )
 
+    filter_table(
+        decontam.out.table,
+        decontam.out.fasta,
+        metadata
+    )
+
     emit:
-    table = decontam.out.table
-    fasta = decontam.out.fasta
+    table = filter_table.out.table
+    fasta = filter_table.out.fasta
 }
