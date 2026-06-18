@@ -60,8 +60,10 @@ process WRITE_STATE {
         outputs.rep_seqs  = "${params.results_dir}/${params.run_id}/asv_table/rep-seqs_renamed.fna"
     }
     if ('classify' in stageList) {
-        outputs.taxonomy  = "${params.results_dir}/${params.run_id}/taxonomy/idtaxa_classification_confident.tsv"
+        outputs.taxonomy   = "${params.results_dir}/${params.run_id}/taxonomy/idtaxa_classification_confident.tsv"
         outputs.asv_counts = "${params.results_dir}/${params.run_id}/taxonomy/agglomerated_data/asv_counts.tsv"
+        if (params.geocurate)
+            outputs.geocurate = "${params.results_dir}/${params.run_id}/taxonomy/geocurate/"
     }
     if ('diversity' in stageList)
         outputs.diversity = "${params.results_dir}/${params.run_id}/diversity/"
@@ -70,8 +72,8 @@ process WRITE_STATE {
 
     def state = [
         run_id           : params.run_id,
-        pipeline         : "nf-edna-16s",
-        marker           : "16S",
+        pipeline         : "nf-edna",
+        marker           : params.marker,
         completed_stages : stageList,
         last_stage       : last_stage,
         params_used      : [
