@@ -11,11 +11,18 @@ process trim {
     script:
     if (single_end) {
         """
+        rev_primer_rc=\$(echo "${params.primers_rev}" | tr 'ACGTacgt' 'TGCAtgca' | rev)
+
+        pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
+            cutadapt --error-rate 0.1 --times 1 --overlap 3 \
+            -j ${task.cpus} -g ${params.primers_fwd} --discard-untrimmed \
+            -o ${sample_id}.fwd_trimmed.fastq.gz ${reads}
+
         pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
             cutadapt --error-rate 0.1 --times 1 --overlap 3 \
             --minimum-length ${params.min_length} --maximum-length ${params.max_length} \
-            -j ${task.cpus} -g ${params.primers_fwd} --discard-untrimmed \
-            -o ${sample_id}.trimmed.fastq.gz ${reads}
+            -j ${task.cpus} -a \${rev_primer_rc} \
+            -o ${sample_id}.trimmed.fastq.gz ${sample_id}.fwd_trimmed.fastq.gz
         """
     } else {
         """
