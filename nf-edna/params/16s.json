@@ -1,0 +1,10 @@
+{
+  "marker": "16S",
+  "min_length": 350,
+  "max_length": 550,
+  "kingdoms": "Bacteria,Archaea",
+  "daa_level": "Genus",
+  "correlation_level": "Genus",
+  "target_ranks": "Phylum,Family,Genus",
+  "geocurate": false
+}

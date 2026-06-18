@@ -1,0 +1,11 @@
+{
+  "marker": "COI",
+  "min_length": 290,
+  "max_length": 340,
+  "kingdoms": "Eukaryota",
+  "daa_level": "Species",
+  "correlation_level": "Species",
+  "target_ranks": "Phylum,Family,Genus,Species",
+  "geocurate": true,
+  "geocurate_buffer": 500
+}
