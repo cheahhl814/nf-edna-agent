@@ -7,6 +7,7 @@ Manual test scripts for the three `edna:*` Claude Code skills. Each walkthrough 
 ## Walkthrough 1 — Intake: complete valid input (16S)
 
 **Setup:** The 16S test fixtures are present:
+
 - `nf-edna-16s/tests/fixtures/manifest.csv` (3 samples, SE)
 - `nf-edna-16s/tests/fixtures/metadata.tsv`
 - `nf-edna-16s/tests/fixtures/idtaxa_model_16s.rds`
@@ -29,6 +30,7 @@ Manual test scripts for the three `edna:*` Claude Code skills. Each walkthrough 
 14. When shown the parameter summary → reply: `yes`
 
 **Pass criteria:**
+
 - Agent asks each missing parameter once (no batching, no skipping)
 - Agent validates that each file exists before proceeding
 - `results/16s-{date}-walktest/pipeline_state.json` is created with `"completed_stages": []` and `"last_stage": "intake"`
@@ -53,6 +55,7 @@ Manual test scripts for the three `edna:*` Claude Code skills. Each walkthrough 
 8. Skip answering primer questions (reply `I don't know` or similar)
 
 **Pass criteria:**
+
 - Agent does not proceed past primers — it asks again or explains what is needed
 - Agent does not assume a default primer sequence
 - Agent does not write `pipeline_state.json` until all required parameters are collected
@@ -70,6 +73,7 @@ Manual test scripts for the three `edna:*` Claude Code skills. Each walkthrough 
 3. When asked for run_id → reply: `16s-20260521-siteA`
 
 **Pass criteria:**
+
 - Agent reads the existing `pipeline_state.json`
 - Agent reports: "QC and DENOISE are complete. CLASSIFY, DIVERSITY, ASSOCIATION remain."
 - Agent asks whether to continue or start over
@@ -88,6 +92,7 @@ Manual test scripts for the three `edna:*` Claude Code skills. Each walkthrough 
 3. When shown the Nextflow command → reply: `no` (do not execute)
 
 **Pass criteria:**
+
 - Agent shows the full `nextflow run nf-edna-16s -params-file ... -resume` command before executing
 - Agent does not run Nextflow until confirmation is given
 - After `no`: agent does not execute the pipeline and asks what the scientist wants to do instead
@@ -106,6 +111,7 @@ Manual test scripts for the three `edna:*` Claude Code skills. Each walkthrough 
 4. When shown command → reply: `yes`
 
 **Pass criteria:**
+
 - Nextflow executes successfully (exit 0)
 - `results/{run_id}/pipeline_state.json` is updated to `"completed_stages": ["qc", "denoise", "classify", "diversity", "association"]`
 - Agent reports stage completions as they happen
@@ -126,6 +132,7 @@ Note: This walkthrough requires the full pipeline environment (all pixi envs) to
 3. Confirm the command
 
 **Pass criteria:**
+
 - Agent detects the QC failure (non-zero exit or empty trimmed output)
 - Agent extracts relevant log excerpt and explains the likely cause
 - Agent offers three options: retry, skip, abort
@@ -145,6 +152,7 @@ Note: This walkthrough requires the full pipeline environment (all pixi envs) to
 3. When asked to proceed despite any anomalies (if flagged) → reply: `yes`
 
 **Pass criteria:**
+
 - `results/{run_id}/report.md` is created with all 7 sections (Run Summary, QC Summary, ASV Overview, Alpha Diversity, Beta Diversity, Differential Abundance, Caveats)
 - No section is silently empty — if data is unavailable, section says so explicitly
 - Narrative summary (2–3 paragraphs) is appended and printed to terminal
@@ -164,6 +172,7 @@ Note: This walkthrough requires the full pipeline environment (all pixi envs) to
 4. "Are there any taxa that might indicate contamination?"
 
 **Pass criteria for each:**
+
 1. Agent reads `diversity/beta/` output and names specific taxa or notes the data is unavailable
 2. Agent reads QC output files to give actual read counts for sample1, not a generic answer
 3. Agent names the dominant genera from the taxonomy file and provides functional context appropriate to 16S
@@ -175,11 +184,11 @@ Note: This walkthrough requires the full pipeline environment (all pixi envs) to
 
 Shared `pipeline_state.json` fixtures are in `tests/fixtures/`:
 
-| File | Pipeline | Stages complete |
-|------|----------|-----------------|
-| `pipeline_state_16s_intake.json` | nf-edna-16s | none (intake only) |
-| `pipeline_state_16s_qc.json` | nf-edna-16s | qc |
+| File                               | Pipeline    | Stages complete       |
+| ---------------------------------- | ----------- | --------------------- |
+| `pipeline_state_16s_intake.json`   | nf-edna-16s | none (intake only)    |
+| `pipeline_state_16s_qc.json`       | nf-edna-16s | qc                    |
 | `pipeline_state_16s_classify.json` | nf-edna-16s | qc, denoise, classify |
-| `pipeline_state_16s_full.json` | nf-edna-16s | all 5 stages |
-| `pipeline_state_euk_intake.json` | nf-edna-euk | none (intake only) |
-| `pipeline_state_euk_full.json` | nf-edna-euk | all 5 stages |
+| `pipeline_state_16s_full.json`     | nf-edna-16s | all 5 stages          |
+| `pipeline_state_euk_intake.json`   | nf-edna-euk | none (intake only)    |
+| `pipeline_state_euk_full.json`     | nf-edna-euk | all 5 stages          |
