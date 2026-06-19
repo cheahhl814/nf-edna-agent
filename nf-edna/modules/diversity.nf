@@ -55,8 +55,10 @@ process beta_diversity {
     path tree
 
     output:
-    path "tse_object.rds",       emit: tse
-    path "community_typing.rds", emit: community_rds
+    path "tse_object.rds",          emit: tse
+    path "community_typing.rds",    emit: community_rds
+    path "permanova_results.tsv",   emit: permanova
+    path "sample_clusters.tsv",     emit: clusters
     path "*.pdf"
 
     script:

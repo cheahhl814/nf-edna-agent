@@ -26,7 +26,7 @@ Check for `results/{run_id}/run_summary.json`. If it exists, read it — it is t
 If it does not exist, generate it:
 
 ```bash
-python3 analyses/{analysis_id}/results/summarise_run.py \
+python3 nf-edna/bin/summarise_run.py \
   --results_dir analyses/{analysis_id}/results \
   --run_id {run_id}
 ```

@@ -148,14 +148,14 @@ When all stages are complete (or when `association` is the last completed stage)
 
 ```bash
 cd {AMPLICON_PATH}
-python3 analyses/{analysis_id}/results/summarise_run.py \
+python3 nf-edna/bin/summarise_run.py \
   --results_dir analyses/{analysis_id}/results \
   --run_id {run_id}
 ```
 
 This writes `results/{run_id}/run_summary.json`, which pre-compiles all statistics (read flow, ASV counts, taxonomy, top taxa, alpha/beta diversity, DA, correlations, blank QC warnings) into a single compact file used by `/edna:interpret`.
 
-If the script is not present at that path, look for it at `analyses/*/results/summarise_run.py`.
+If the script is not present at that path, look for it at `analyses/*/results/summarise_run.py` (older analyses may still have a local copy).
 
 ## Step 9 — Hand off
 
