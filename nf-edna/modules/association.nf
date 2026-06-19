@@ -39,13 +39,21 @@ process correlation_analysis {
 
     script:
     """
+    mkdir -p correlation_analysis_genus correlation_analysis_family
     pixi run --manifest-path ${baseDir}/env/association/pixi.toml \
         Rscript ${baseDir}/bin/correlation_analysis.R \
         --input_asv_counts ${asv_counts} --input_asv_taxonomy ${asv_taxonomy} \
         --input_metadata ${metadata} --input_alpha_diversity ${alpha_diversity} \
         --fixed_effect_variable "${params.grouping_variable}" \
         --metadata_numeric_variables "${params.metadata_numeric_variables}" \
-        --level_to_analyze "${params.correlation_level}" --output_dir .
+        --level_to_analyze "Genus" --output_dir correlation_analysis_genus
+    pixi run --manifest-path ${baseDir}/env/association/pixi.toml \
+        Rscript ${baseDir}/bin/correlation_analysis.R \
+        --input_asv_counts ${asv_counts} --input_asv_taxonomy ${asv_taxonomy} \
+        --input_metadata ${metadata} --input_alpha_diversity ${alpha_diversity} \
+        --fixed_effect_variable "${params.grouping_variable}" \
+        --metadata_numeric_variables "${params.metadata_numeric_variables}" \
+        --level_to_analyze "Family" --output_dir correlation_analysis_family
     """
 }
 
