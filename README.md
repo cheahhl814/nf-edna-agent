@@ -70,6 +70,46 @@ This pipeline ships with three Claude Code skills (`.claude/skills/edna-intake.m
 - `edna-run.md` — execute pipeline stages, monitor progress, update `pipeline_state.json`
 - `edna-interpret.md` — turn outputs into a structured report, narrative summary, and interactive Q&A
 
+### Example prompts
+
+In Claude Code, the skills are invoked as slash commands (`/edna:intake`, `/edna:run`, `/edna:interpret`); in other agentic tools, invoke them however that tool triggers an imported skill (by name, or by referencing the instructions file directly).
+
+**Starting a new run:**
+
+> `/edna:intake`
+>
+> "I have a new 16S run, sample data in `raw_reads/siteA/`, metadata at `metadata/siteA.tsv`. Primers are the standard 515F/806R pair."
+
+**Continuing an in-progress run:**
+
+> `/edna:run`
+>
+> "Continue run `16s-20260521-siteA` — run all remaining stages."
+
+**Running only through a specific stage:**
+
+> `/edna:run`
+>
+> "For run `12s-20260601-reef3`, just run through classification — I want to check taxonomy before committing to diversity/association."
+
+**Retrying after a failure:**
+
+> "The QC stage failed on run `coi-20260603-bay2` — primer not found. Retry with `--primer_mismatch_rate 0.2`."
+
+**Interpreting completed results:**
+
+> `/edna:interpret`
+>
+> "Interpret run `16s-20260521-siteA` and write the report."
+
+**Follow-up Q&A after a report is written:**
+
+> "Which taxa are driving the separation between the site clusters?"
+>
+> "Is the low read count in sample siteA-03 something I should worry about?"
+>
+> "Summarize this for a manuscript Results section, focused on the dominant phyla."
+
 ### Importing into other agentic tools
 
 For tools with native skill/instruction-file support (e.g. Codex, Gemini CLI), point the tool at the file and ask it to import the skill — or copy it into that tool's own skill-discovery directory first if it only auto-loads from a fixed location. A prompt along these lines works for most tools:
