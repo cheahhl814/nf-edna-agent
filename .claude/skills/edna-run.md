@@ -1,6 +1,6 @@
 ---
 name: edna:run
-description: Execute the correct nf-edna-16s or nf-edna-euk pipeline stage(s), monitor progress, and update pipeline_state.json. Invoke after edna:intake has written the initial state.
+description: Execute the correct nf-edna pipeline stage(s) for the run's marker preset, monitor progress, and update pipeline_state.json. Invoke after edna:intake has written the initial state.
 ---
 
 # edna:run
@@ -20,7 +20,8 @@ Read `results/{run_id}/pipeline_state.json`. If it does not exist, stop:
 ## Step 2 — Determine what to run
 
 From `pipeline_state.json`:
-- `pipeline`: which pipeline binary to use (`nf-edna-16s` or `nf-edna-euk`)
+- `pipeline`: pipeline directory to use (always `nf-edna` now)
+- `marker`: which preset file to pass via `-params-file` in addition to the run's `params.json` (`16s.json`, `18s-v9.json`, `coi.json`, or `12s.json`, matched by lowercasing/normalizing `marker`)
 - `completed_stages`: what has already run
 - `last_stage`: last completed stage
 
@@ -45,19 +46,22 @@ Note: Entry points `QC_ONLY`, `DENOISE_ONLY`, `CLASSIFY_ONLY`, `DIVERSITY_ONLY` 
 ## Step 3 — Construct the command
 
 Determine:
-- `PIPELINE_DIR`: the pipeline directory (`nf-edna-16s` or `nf-edna-euk`) relative to `AMPLICON/`
+- `PIPELINE_DIR`: `nf-edna` (relative to `AMPLICON/`)
+- `MARKER_PRESET`: `params/{16s|18s-v9|coi|12s}.json` inside `PIPELINE_DIR`, chosen from `pipeline_state.json`'s `marker` field
 - `PARAMS_FILE`: `results/{run_id}/params.json`
 - `ENTRY`: the Nextflow entry point workflow name (or omit for default full workflow)
 - `RESUME`: add `-resume` if any stages are already complete
 
+Note: `-params-file` accepts only one file, so pass the marker preset first and let `PARAMS_FILE` override on top via a second `-params-file` flag — Nextflow merges multiple `-params-file` flags left-to-right, last one wins on conflicts.
+
 For running all remaining stages from the start:
 ```bash
-nextflow run {PIPELINE_DIR} -params-file {PARAMS_FILE} -resume
+nextflow run {PIPELINE_DIR} -params-file {PIPELINE_DIR}/{MARKER_PRESET} -params-file {PARAMS_FILE} -resume
 ```
 
 For running up to a specific stage:
 ```bash
-nextflow run {PIPELINE_DIR} -entry {ENTRY_POINT} -params-file {PARAMS_FILE} -resume
+nextflow run {PIPELINE_DIR} -entry {ENTRY_POINT} -params-file {PIPELINE_DIR}/{MARKER_PRESET} -params-file {PARAMS_FILE} -resume
 ```
 
 Entry point mapping:
@@ -138,13 +142,29 @@ After each stage completes successfully, read the current `pipeline_state.json` 
 
 Use the Write tool to overwrite `results/{run_id}/pipeline_state.json`.
 
-## Step 8 — Hand off
+## Step 8 — Generate run summary
+
+When all stages are complete (or when `association` is the last completed stage), generate the AI-readable run summary:
+
+```bash
+cd {AMPLICON_PATH}
+python3 analyses/{analysis_id}/results/summarise_run.py \
+  --results_dir analyses/{analysis_id}/results \
+  --run_id {run_id}
+```
+
+This writes `results/{run_id}/run_summary.json`, which pre-compiles all statistics (read flow, ASV counts, taxonomy, top taxa, alpha/beta diversity, DA, correlations, blank QC warnings) into a single compact file used by `/edna:interpret`.
+
+If the script is not present at that path, look for it at `analyses/*/results/summarise_run.py`.
+
+## Step 9 — Hand off
 
 When all requested stages are complete:
 
 > "Pipeline complete through `{last_stage}`.
 > Completed stages: {completed_stages}
 >
+> Run summary written to `results/{run_id}/run_summary.json`.
 > To interpret results: `/edna:interpret`"
 
 If only some stages were requested and more remain:
@@ -155,4 +175,5 @@ If only some stages were requested and more remain:
 - Never execute a Nextflow command without showing it first and waiting for explicit confirmation.
 - Never update `pipeline_state.json` for a stage that failed.
 - Always use `-resume` when any prior stage has completed, so Nextflow reuses cached work.
-- Always run Nextflow from within the pipeline directory (`nf-edna-16s/` or `nf-edna-euk/`) so relative paths in configs resolve correctly.
+- Always run Nextflow from within the pipeline directory (`nf-edna/`) so relative paths in configs resolve correctly.
+- Always pass the marker preset (`-params-file nf-edna/params/{marker}.json`) before the run's own `params.json`, so the run's values take precedence.

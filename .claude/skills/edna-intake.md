@@ -11,11 +11,11 @@ You are the intake agent for an eDNA metabarcoding analysis. Your job is to gath
 
 Ask if not already stated:
 
-> "Which marker gene / pipeline are you running?
-> - **16S** (prokaryotes, V3-V4 or similar) → `nf-edna-16s`
-> - **18S V9** (eukaryotes, aquatic biodiversity) → `nf-edna-euk`
-> - **COI** (eukaryotes, invertebrates) → `nf-edna-euk`
-> - **12S** (eukaryotes, vertebrates) → `nf-edna-euk`"
+> "Which marker gene are you running?
+> - **16S** (prokaryotes, V3-V4 or similar) → `nf-edna`, preset `params/16s.json`
+> - **18S V9** (eukaryotes, aquatic biodiversity) → `nf-edna`, preset `params/18s-v9.json`
+> - **COI** (eukaryotes, invertebrates) → `nf-edna`, preset `params/coi.json`
+> - **12S** (eukaryotes, vertebrates) → `nf-edna`, preset `params/12s.json`"
 
 Then ask:
 
@@ -81,9 +81,9 @@ Ask each question below only if the answer has not already been provided. Ask on
 
 **f) Kingdom filter**
 
-Confirm the appropriate kingdom filter:
-- `nf-edna-16s`: `Bacteria,Archaea` (default)
-- `nf-edna-euk`: `Eukaryota` (default)
+Confirm the appropriate kingdom filter (already set by the marker preset, override only if the scientist's experiment differs):
+- 16S: `Bacteria,Archaea` (default)
+- 18S V9 / COI / 12S: `Eukaryota` (default)
 
 Ask only if the scientist's experiment might differ (e.g., they specifically want to exclude Archaea).
 
@@ -121,20 +121,21 @@ Ask: "Does this look correct? Type 'yes' to proceed or correct any parameter."
 
 Once confirmed:
 
-1. **Generate `run_id`** (if new run): `{pipeline_prefix}-{YYYYMMDD}-{short_descriptor}`
+1. **Generate `run_id`**: `{marker_prefix}-{YYYYMMDD}-{short_descriptor}`
    - Ask for a short descriptor (e.g. site name, experiment ID): "What short label should identify this run? (e.g., `siteA`, `batch2`)"
-   - 16S prefix: `16s`, eukaryote prefix: `euk`
+   - Marker prefixes: 16S → `16s`, 18S-V9 → `18sv9`, COI → `coi`, 12S → `12s`
 
 2. **Write `results/{run_id}/pipeline_state.json`**:
 
 ```json
 {
   "run_id": "{run_id}",
-  "pipeline": "{nf-edna-16s|nf-edna-euk}",
+  "pipeline": "nf-edna",
   "marker": "{marker}",
   "completed_stages": [],
   "last_stage": "intake",
   "params_used": {
+    "input_manifest": "...",
     "primers_fwd": "...",
     "primers_rev": "...",
     "min_length": ...,
@@ -148,6 +149,8 @@ Once confirmed:
    Use the Write tool. Create the `results/{run_id}/` directory first if it doesn't exist.
 
 3. **Write `results/{run_id}/params.json`** — full parameter file for `nextflow run -params-file`:
+
+   This file is merged on top of the marker preset (`nf-edna/params/{16s|18s-v9|coi|12s}.json`) — only include values here that differ from the chosen preset, plus the always-required run-specific fields below:
 
 ```json
 {
