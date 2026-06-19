@@ -1,0 +1,13 @@
+[workspace]
+channels = ["conda-forge", "bioconda", "anaconda"]
+name = "decontam"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[activation]
+env = { JULIA_PROJECT = "$PIXI_PROJECT_ROOT" }
+
+[tasks]
+
+[dependencies]
+julia = ">=1.12.2,<1.13"
