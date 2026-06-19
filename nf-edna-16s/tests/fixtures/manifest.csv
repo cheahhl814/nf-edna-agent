@@ -1,4 +1,0 @@
-sample-id,absolute-filepath
-sample1,/home/cheahhl814/claude_workspace/bioinformatics/AMPLICON/nf-edna-16s/tests/fixtures/sample1.fastq.gz
-sample2,/home/cheahhl814/claude_workspace/bioinformatics/AMPLICON/nf-edna-16s/tests/fixtures/sample2.fastq.gz
-sample3,/home/cheahhl814/claude_workspace/bioinformatics/AMPLICON/nf-edna-16s/tests/fixtures/sample3.fastq.gz
