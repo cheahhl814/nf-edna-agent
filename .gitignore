@@ -11,3 +11,7 @@ nf-edna/assets/**/*.rds
 nf-edna/assets/**/*.fasta
 nf-edna/assets/**/*.xlsx
 nf-edna/assets/**/*.list
+
+# Internal-only — not for the public GitHub repo
+/docs/superpowers/
+/tests/
