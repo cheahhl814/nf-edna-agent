@@ -1,6 +1,6 @@
-# nf-edna
+# nf-edna-agent
 
-A Nextflow DSL2 pipeline for eDNA metabarcoding analysis, covering QC, denoising, taxonomic classification, diversity, and association stages for four marker genes: **16S** (Bacteria/Archaea), **18S-V9**, **COI**, and **12S** (Eukaryota).
+A Nextflow DSL2 pipeline for eDNA metabarcoding analysis, covering QC, denoising, taxonomic classification, diversity, and association stages for four marker genes: **16S** (Bacteria/Archaea), **18S-V9**, **COI**, and **12S** (Eukaryota) — paired with AI agent skills (see [Agentic workflow skills](#agentic-workflow-skills)) that drive intake, execution, and interpretation of runs.
 
 A single pipeline codebase handles all four markers — marker-specific behavior (amplicon length range, kingdom filter, taxonomic ranks, optional geographic curation) is supplied via `-params-file` presets rather than separate pipeline copies.
 
