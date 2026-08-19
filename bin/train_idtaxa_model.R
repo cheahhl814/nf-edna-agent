@@ -37,10 +37,19 @@ seqs <- readDNAStringSet(file_training)
 
 # DECIPHER's LearnTaxa requires names of the form:
 #   "accession Root;level1;level2;..."
-# Input headers are "accession;x__level1;x__level2;..." so we reformat here.
+# OR the simpler "Root;level1;level2;..." (one taxonomy path shared across all
+# accessions in the same lineage). We support BOTH formats:
+#   1. QIIME2-style:   >accession;k__Bacteria;p__Firmicutes;...;s__species
+#   2. DECIPHER-style: >accession Root;superkingdom;phylum;...;species
+#   3. Bare taxonomy:  >Root;superkingdom;phylum;...;species
+# Extract the "Root;...;species" portion and use that as the group name (the
+# accession prefix is irrelevant for classification — DECIPHER only needs the
+# taxonomy path).
 groups <- names(seqs)
-groups <- sub("^(\\S+);", "\\1 Root;", groups)   # first ; → " Root;"
-groups <- gsub("[a-z]__", "", groups)             # strip QIIME-style prefixes (s__, p__, ...)
+groups <- sub("^[^[:space:];]*[ ;]", "", groups, perl = FALSE)  # strip accession + space/semicolon delimiter
+# Note: legacy \S+ patterns are R-incompatible; the first sub already
+# handles all 3 input formats. Remove the legacy sub.
+groups <- gsub("[a-z]__", "", groups)                            # strip QIIME-style prefixes (s__, p__, ...)
 
 message(paste("Initial number of sequences:", length(seqs)))
 message(paste("Initial number of unique taxonomy groups:", length(unique(groups))))
@@ -75,6 +84,76 @@ if (length(seqs) == 0) {
 }
 
 
+# --- Build rank data.frame from unique taxonomy paths ---
+# LearnTaxa requires a `rank` data.frame describing the taxonomy hierarchy
+# (Index, Name, Parent, Level, Rank). We derive this from the unique group paths
+# rather than hardcoding the rank order, so the script adapts to any reference
+# FASTA format.
+#
+# Special handling: if the species-level taxon is a binomial (e.g. "Acipenser
+# gueldenstaedtii") and the genus is NOT already a separate rank level in the
+# path, split it into genus + species so the genus appears as its own rank
+# level (DECIPHER requires it). If the species is a single-word name (e.g. "sp."),
+# or the genus is already its own level, keep it as-is.
+message("Building rank table from unique taxonomy paths...")
+unique_groups <- unique(groups)
+split_groups <- strsplit(unique_groups, ";")
+expanded_groups <- lapply(split_groups, function(parts) {
+    n <- length(parts)
+    if (n > 0 && grepl(" ", parts[n])) {
+        binomial <- strsplit(parts[n], " ", fixed = TRUE)[[1]]
+        if (length(binomial) == 2 && !is.na(binomial[1]) && !is.na(binomial[2])) {
+            # Only split if the genus is not already a separate level in the path
+            # (e.g. for paths that already have genus as level n-1)
+            if (!(binomial[1] %in% parts[seq_len(n - 1)])) {
+                return(c(parts[seq_len(n - 1)], binomial[1], binomial[2]))
+            }
+        }
+    }
+    parts
+})
+all_levels    <- unique(unlist(expanded_groups))
+taxa_idx      <- setNames(seq_along(all_levels) - 1, all_levels)
+
+parent_idx <- sapply(all_levels, function(tax) {
+    for (parts in expanded_groups) {
+        idx <- match(tax, parts)
+        if (!is.na(idx) && idx > 1) {
+            parent_name <- parts[idx - 1]
+            return(taxa_idx[[parent_name]])
+        }
+    }
+    return(-1L)  # Root's parent
+})
+
+level_idx <- sapply(names(taxa_idx), function(t) {
+    for (parts in expanded_groups) {
+        idx <- match(t, parts)
+        if (!is.na(idx)) return(idx - 1L)
+    }
+    return(0L)
+})
+
+# Default rank names for levels 1-7 (after Root). Custom levels (e.g. strain)
+# fall back to the level number.
+default_rank_names <- c("superkingdom", "phylum", "class", "order", "family", "genus", "species")
+rank_names <- sapply(level_idx, function(lvl) {
+    if (lvl == 0L) return("rootrank")
+    if (lvl <= length(default_rank_names)) return(default_rank_names[lvl])
+    return(paste0("level_", lvl))
+})
+
+rank_table <- data.frame(
+    Index  = unname(taxa_idx),
+    Name   = names(taxa_idx),
+    Parent = parent_idx,
+    Level  = level_idx,
+    Rank   = rank_names,
+    stringsAsFactors = FALSE
+)
+message(paste("Rank table:", nrow(rank_table), "unique taxa across", max(level_idx) + 1, "levels"))
+
+
 # --- Iteratively train classifier ---
 message("Starting iterative training of IDTAXA classifier...")
 probSeqsPrev <- integer() # suspected problem sequences from previous iteration
@@ -83,7 +162,7 @@ trainingSet <- NULL # Initialize trainingSet
 for (i in seq_len(maxIterations)) {
   message(paste("Training iteration:", i))
   
-  trainingSet <- LearnTaxa(seqs, groups, maxIterations=maxIterations)
+  trainingSet <- LearnTaxa(seqs, groups, rank = rank_table, maxIterations=maxIterations)
 
   # Look for problem sequences. The 'problemSequences' are indices relative to the current 'seqs' object.
   # The problem sequences list might be empty if all sequences are successfully classified.

@@ -239,6 +239,35 @@ nextflow run . -params-file params/16s.json -params-file params.json
 cd /home/cheahhl814/claude_workspace/bioinformatics/AIx-BIO/skills/nf-edna
 python3 test_smoke.py   # 38/38 pass
 
+## v1.1.1 addendum — DECIPHER RDX3 IDTAXA training-file support
+
+After the v1.1.1 marker-correction release, the user reported that `@/home/cheahhl814/.../nf-edna/assets/16s/SILVA_SSU_r138.2.rdata` (285 MB, XZ-compressed, DECIPHER RDX3 binary format) failed to load with `bin/idtaxa_rds.R` because that script called base R `readRDS()`, which cannot decode DECIPHER's custom RDX3 stream.
+
+Root cause: DECIPHER writes trainingSet objects using a custom `Write()` method that prepends a 5-byte `RDX3\n` magic header followed by XDR-encoded S4 data. Base R `readRDS()` rejects this format. DECIPHER 3.6 does **not** export any loader (`trainingFile()` is not exposed).
+
+Fix applied in `bin/idtaxa_rds.R`:
+
+1. **Magic-byte detection** — peek at the first 8 bytes of the file and dispatch to one of three loaders:
+   - `RDX3\n` (52 44 58 33 0a) → DECIPHER RDX3 binary format; skip 5 bytes, `unserialize()`, extract `obj$trainingSet`
+   - `1f 8b` → gzip; decompress via `gzfile()` then `readRDS()`
+   - `fd 37 7a 58 5a` (or any xz-prefixed bytes) → xz; decompress to a temp file, re-detect
+   - else → standard RDS via `readRDS()`
+2. **Auto-cached conversion** — when an RDX3 file is loaded from a real (non-temp) path, the script also saves a converted `.converted.rds` next to it for faster future loads.
+3. **Sanity check** — confirms the loaded object is `class(trainingSet) == c("Taxa", "Train")` before passing to `IdTaxa()`.
+
+End-to-end test: ran the patched script against the user's `SILVA_SSU_r138.2.rdata` file with a tiny `ACGT×10` query sequence. The pipeline:
+
+- Detected format = `xz`, magic = `fd 37 7a 58 5a 00 00 01`
+- Decompressed to a temp file
+- Skipped RDX3 header (`Skipped RDX3 header: RDX3`)
+- `unserialize()` recovered `trainingSet` (class = `Taxa, Train`)
+- `IdTaxa(dna, trainingSet)` ran successfully (0.02 s)
+- Wrote classification + confidence TSVs (all NA ranks for the synthetic ACGT query, as expected)
+
+Also added **Finding 7** to `run/edna-run/SKILL.md` signature library documenting this new behaviour for future agents.
+
+Lesson: when integrating with package-specific serialization formats, sniff the magic bytes and dispatch to the appropriate loader — don't assume one format works for all training files.
+
 # Reproduce Nextflow stub run
 export JAVA_HOME=/home/cheahhl814/.sdkman/candidates/java/21.0.11-tem
 export PATH=$JAVA_HOME/bin:$PATH

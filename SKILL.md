@@ -25,6 +25,8 @@ requires:
 
 # Meta-Skill: nf-edna
 
+> **v1.1.1.** Adds support for **DECIPHER RDX3 IDTAXA training files** (e.g., SILVA `SILVA_SSU_r138.2.rdata`, XZ- or gzip-compressed). `bin/idtaxa_rds.R` now auto-detects three model formats via magic-byte sniffing: standard RDS, gzipped RDS, and DECIPHER's RDX3 binary format (the 5-byte `RDX3\n` header is skipped before `unserialize()`). No user action needed — the same `idtaxa_model` path that previously broke on RDX3 files now loads transparently and caches a converted `.converted.rds` next to the original. Finding 7 added to `run/edna-run/SKILL.md` signature library.
+>
 > **v1.1.0.** Adds the canonical BettaMt / `bettamt-preflight` structure to all 3 sub-skills (§0 Inputs/Outputs contract, §0.5 Ask-User Stop Points with Evidence + Recommend + Options format, §Audience, §When to Use / §Do NOT use this skill, §Troubleshooting — Signature library, GO / GO-WITH-WARNINGS / NO-GO verdict gate). Master `§0.5 SP0` now has an explicit `Auto-pick when` operating rule. The 3 sub-skill procedure bodies (the Steps) are unchanged from v1.0.0 — only the structured wrappers were added. Mirrors `bioinfo-skill-creator/preflight/skill-creator-preflight/SKILL.md`.
 >
 > **This SKILL.md is a router.** It does not duplicate logic from the sub-skills. Its job is to ask: *what stage is the user at, and which sub-skill should they invoke next?*

@@ -43,19 +43,19 @@ Use this skill when you need to:
 
 ### Inputs (consumed)
 
-| Path | Source | Required? | Notes |
-| --- | --- | --- | --- |
-| `results/{run_id}/pipeline_state.json` | `run/edna-run` | yes | `completed_stages` must include `classify` (SP1 gate). Used for `run_id`, `marker`, `params_used`, `outputs`. |
-| `results/{run_id}/run_summary.json` | `bin/summarise_run.py` (invoked by `run/edna-run`) | yes | The compact LLM-loadable summary. Provides `read_flow`, `blank_qc`, `asv_counts`, `taxonomy`, `top_taxa`, `alpha_diversity`, `beta_diversity`, `differential_abundance`, `correlations`, `notes`. |
-| `results/{run_id}/{stage}_output/...` | Nextflow pipeline | conditional | Read on-demand for detail not captured in the summary (full ASV lists, raw correlation tables, individual PDFs). |
+| Path                                   | Source                                             | Required?   | Notes                                                                                                                                                                                             |
+| -------------------------------------- | -------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `results/{run_id}/pipeline_state.json` | `run/edna-run`                                     | yes         | `completed_stages` must include `classify` (SP1 gate). Used for `run_id`, `marker`, `params_used`, `outputs`.                                                                                     |
+| `results/{run_id}/run_summary.json`    | `bin/summarise_run.py` (invoked by `run/edna-run`) | yes         | The compact LLM-loadable summary. Provides `read_flow`, `blank_qc`, `asv_counts`, `taxonomy`, `top_taxa`, `alpha_diversity`, `beta_diversity`, `differential_abundance`, `correlations`, `notes`. |
+| `results/{run_id}/{stage}_output/...`  | Nextflow pipeline                                  | conditional | Read on-demand for detail not captured in the summary (full ASV lists, raw correlation tables, individual PDFs).                                                                                  |
 
 ### Outputs (produced)
 
-| Path | Format | Owner | Notes |
-| --- | --- | --- | --- |
-| `results/{run_id}/{run_id}-report.md` | Markdown | this skill | The structured report (Step 3). Sections: Run Summary, QC Summary, ASV & Taxonomy Overview, Alpha Diversity, Beta Diversity, Differential Abundance, Correlation Analysis, Caveats. |
-| `results/{run_id}/narrative.md` | Markdown | this skill | A 2–3 paragraph plain-language summary suitable for a manuscript Results-section draft (Step 4). |
-| (no on-disk output for Q&A) | conversation | this skill | Q&A answers are given in-line; the scientist's questions are not persisted unless the user asks for a transcript (Step 5). |
+| Path                                  | Format       | Owner      | Notes                                                                                                                                                                               |
+| ------------------------------------- | ------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `results/{run_id}/{run_id}-report.md` | Markdown     | this skill | The structured report (Step 3). Sections: Run Summary, QC Summary, ASV & Taxonomy Overview, Alpha Diversity, Beta Diversity, Differential Abundance, Correlation Analysis, Caveats. |
+| `results/{run_id}/narrative.md`       | Markdown     | this skill | A 2–3 paragraph plain-language summary suitable for a manuscript Results-section draft (Step 4).                                                                                    |
+| (no on-disk output for Q&A)           | conversation | this skill | Q&A answers are given in-line; the scientist's questions are not persisted unless the user asks for a transcript (Step 5).                                                          |
 
 ### Verdict gate enforcement
 
@@ -67,32 +67,32 @@ This sub-skill has **4 stop points** (SP1–SP4). Each fires only when the evide
 
 ### SP1 — Stage-completeness gate
 
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
+| Trigger                                                 | Evidence check         | Action                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pipeline_state.json.completed_stages` lacks `classify` | Required stage missing | Hard-stop: "Classification has not run yet for this run (`completed_stages` = `<list>`). I can only interpret results from the classify stage onwards. Run `run/edna-run` to complete classification first, or I can describe what the QC/denoising outputs show so far — would you like that?" |
 
 **Auto-pick when**: `classify ∈ completed_stages`. No ask.
 
 ### SP2 — Anomaly severity
 
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
+| Trigger                                                                                                                                                                                                                              | Evidence check                                                   | Action                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | One or more anomalies found in Step 2b scan: zero ASVs, empty taxonomy, low confidence-filter retention, blank contamination, missing expected output files, very low read counts, no decontam filtering despite contaminated blanks | The report would mislead if these are silently buried in Caveats | Ask: "I detected `<N>` anomalies before writing the report (listed below). Pick: (A) **proceed** with interpretation, surfacing each anomaly prominently in Caveats (recommended), (B) **investigate first** — tell me which anomaly to dig into, (C) **abort** until upstream stages re-run\n\nAnomalies:\n- `<list>`" |
 
 **Auto-pick when**: zero anomalies detected. No ask.
 
 ### SP3 — Report-scope ambiguity
 
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
+| Trigger                                                                                                                                          | Evidence check                               | Action                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `completed_stages` contains `classify` but not `diversity` and not `association`; OR scientist asks "summarize what we have so far" mid-pipeline | Partial run; not all sections can be written | Ask: "Run is partially complete (`<list>`). Pick: (A) write the report sections for the stages that exist and mark the missing stages as 'Output unavailable' in each section (recommended), (B) write only the QC + ASV/Taxonomy sections (skip Diversity/DAA/Correlation), (C) wait until more stages complete" |
 
 **Auto-pick when**: `diversity ∈ completed_stages` AND `association ∈ completed_stages` (full run). No ask.
 
 ### SP4 — Q&A termination
 
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
+| Trigger                                                                                | Evidence check                          | Action                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Scientist signals completion ("thanks", "done", "exit", or no follow-up for ≥ 3 turns) | The session has reached its natural end | No ask needed for the response itself, but: when the Q&A mode terminates, **ask** one final clarification: "Before I close this interpretation session: pick (A) **save the Q&A transcript** to `results/{run_id}/qa_transcript.md`, (B) **discard** the transcript, (C) keep the report as-is and add the transcript inline to the report" |
 
 **Auto-pick when**: scientist is mid-Q&A. No ask (the Q&A itself is the conversation).
@@ -170,6 +170,7 @@ From `pipeline_state.json` (`params_used` field — there is no separate `params
 Use `read_flow` from `run_summary.json` for trimmed read counts per sample. If `raw` values are present, compute retention rate; if absent, note that raw counts require re-running `summarise_run.py --manifest <path>`.
 
 If `run_summary.json` is unavailable, count reads from `qc/trimmed/` directly:
+
 ```bash
 zcat qc/trimmed/{sample}/{sample}.trimmed.fastq.gz | wc -l
 # divide by 4
@@ -185,6 +186,7 @@ Report:
 ### ASV and Taxonomy Overview
 
 From `run_summary.json`:
+
 - `asv_counts`: raw → decontam → filtered progression; `contaminants_flagged`
 - `taxonomy.total_asvs`, `taxonomy.kingdom_distribution`, `taxonomy.classification_rates` (% classified per rank)
 - `taxonomy.confidence_filter`: ASVs lost to confidence filtering (if any)
@@ -194,6 +196,7 @@ From `run_summary.json`:
 Available ranks vary by pipeline: 16S runs typically have phylum/family/genus; eukaryote (V9) runs typically have class/family/genus. The `top_taxa` object in the summary contains only ranks that were actually produced.
 
 Report:
+
 - ASV counts at each stage with % retained
 - Number of unique taxa at each available rank (row counts from `taxonomy/agglomerated_data/*_counts.tsv` if not in summary)
 - Top 5 most abundant taxa at the finest available rank from `top_taxa`
@@ -214,11 +217,13 @@ If diversity stage did not run: note this section is unavailable.
 ### Beta Diversity
 
 From `run_summary.json` `beta_diversity`:
+
 - `permanova`: PERMANOVA results per dissimilarity metric (R², F, p-value). These come from `diversity/beta/permanova_results.tsv`, which is published.
 - `community_typing`: per-sample cluster assignments from `diversity/beta/sample_clusters.tsv`, which is published and readable as a plain TSV (columns: `SampleID`, `Cluster`).
 - `available_outputs`: list of PDF files present
 
 PDF files (cannot be read directly — describe by filename):
+
 - `pcoa_bray_curtis.pdf` — Bray-Curtis dissimilarity PCoA (composition + abundance)
 - `pcoa_aitchison.pdf` — Aitchison distance PCoA (log-ratio, compositional)
 - `pcoa_jaccard.pdf` — Jaccard dissimilarity PCoA (presence/absence)
@@ -333,18 +338,18 @@ Stay in Q&A mode until the scientist signals they are done (e.g., "thanks", "don
 
 ## Troubleshooting — Signature library
 
-| Signature in stderr / log | Likely cause | Suggested fix |
-| --- | --- | --- |
-| `run_summary.json missing` | `bin/summarise_run.py` was not invoked at the end of `run/edna-run` (Stage 8 was skipped) | Run `python3 bin/summarise_run.py --results_dir results --run_id {run_id}` first, then re-invoke `interpret/edna-interpret` |
-| `top_taxa table is empty at finest rank` | All ASVs were filtered out at that agglomeration rank (low confidence, or low prevalence) | Fall back to the next coarser rank (genus → family → class → phylum); mention the fallback in Caveats |
-| `taxonomy.classification_rates: 0% at species rank` (eukaryote run) | IDTAXA confidence threshold dropped all species-level assignments | Note in Caveats; interpret at genus level instead. For 16S, species-level is rarely expected — this is normal. |
-| `blank_qc is non-empty but asv_counts.contaminants_flagged == 0` | Decontam ran but found no flaggable contaminants (either blanks are below the prevalence threshold, or the threshold is too permissive) | Flag in Caveats; suggest re-running with `--decontam_threshold 0.05` (more aggressive) and reviewing `decontam_summary.tsv` manually |
-| `community_typing.rds is a binary R object; cannot read directly` | The summariser left the raw R object instead of the TSV | Use `diversity/beta/sample_clusters.tsv` (the published companion); if missing, regenerate with `Rscript bin/community_typing.R` |
-| `IDTAXA confidence filter lost > 20% ASVs` (`pct_lost > 20`) | The confidence threshold (default 60) is too stringent for this reference DB | Note in Caveats; do not silently drop the section. Optionally re-run classification with `--idtaxa_confidence 50` (more permissive). |
-| `expected output files missing (e.g., pcoa_bray_curtis.pdf)` | Diversity or association stage did not run, or crashed mid-output | Check `pipeline_state.json.completed_stages`; if missing, invoke `run/edna-run` to complete those stages |
-| `Outputs paths in pipeline_state.json point to a different machine's home directory` | State file was generated on a different machine and rsynced | Do NOT trust the `outputs` paths literally; navigate relative to the current `results/{run_id}/` instead |
-| `Q&A answer requires a file that doesn't exist or is empty` | The scientist asked about an output that was never produced | Say so explicitly; do not invent findings. Offer to re-run the relevant pipeline stage. |
-| `blank_qc` shows contamination, scientist asks "which site is affected?" | Both negatives (`is_negative=TRUE` rows in metadata) are shared across all biological samples — decontam.jl uses them as a global pool, not per-site | Do NOT attribute contamination to a single site. Say: "The two negative controls (extraction blank + PCR-reagent blank) are shared across all 8 biological samples for this run, so any contamination finding applies to the run as a whole, not a specific site. To investigate site-specific contamination, additional per-site blanks would be needed." Reference `pipeline_state.json.shared_negatives` if present. |
+| Signature in stderr / log                                                            | Likely cause                                                                                                                                         | Suggested fix                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run_summary.json missing`                                                           | `bin/summarise_run.py` was not invoked at the end of `run/edna-run` (Stage 8 was skipped)                                                            | Run `python3 bin/summarise_run.py --results_dir results --run_id {run_id}` first, then re-invoke `interpret/edna-interpret`                                                                                                                                                                                                                                                                                             |
+| `top_taxa table is empty at finest rank`                                             | All ASVs were filtered out at that agglomeration rank (low confidence, or low prevalence)                                                            | Fall back to the next coarser rank (genus → family → class → phylum); mention the fallback in Caveats                                                                                                                                                                                                                                                                                                                   |
+| `taxonomy.classification_rates: 0% at species rank` (eukaryote run)                  | IDTAXA confidence threshold dropped all species-level assignments                                                                                    | Note in Caveats; interpret at genus level instead. For 16S, species-level is rarely expected — this is normal.                                                                                                                                                                                                                                                                                                          |
+| `blank_qc is non-empty but asv_counts.contaminants_flagged == 0`                     | Decontam ran but found no flaggable contaminants (either blanks are below the prevalence threshold, or the threshold is too permissive)              | Flag in Caveats; suggest re-running with `--decontam_threshold 0.05` (more aggressive) and reviewing `decontam_summary.tsv` manually                                                                                                                                                                                                                                                                                    |
+| `community_typing.rds is a binary R object; cannot read directly`                    | The summariser left the raw R object instead of the TSV                                                                                              | Use `diversity/beta/sample_clusters.tsv` (the published companion); if missing, regenerate with `Rscript bin/community_typing.R`                                                                                                                                                                                                                                                                                        |
+| `IDTAXA confidence filter lost > 20% ASVs` (`pct_lost > 20`)                         | The confidence threshold (default 60) is too stringent for this reference DB                                                                         | Note in Caveats; do not silently drop the section. Optionally re-run classification with `--idtaxa_confidence 50` (more permissive).                                                                                                                                                                                                                                                                                    |
+| `expected output files missing (e.g., pcoa_bray_curtis.pdf)`                         | Diversity or association stage did not run, or crashed mid-output                                                                                    | Check `pipeline_state.json.completed_stages`; if missing, invoke `run/edna-run` to complete those stages                                                                                                                                                                                                                                                                                                                |
+| `Outputs paths in pipeline_state.json point to a different machine's home directory` | State file was generated on a different machine and rsynced                                                                                          | Do NOT trust the `outputs` paths literally; navigate relative to the current `results/{run_id}/` instead                                                                                                                                                                                                                                                                                                                |
+| `Q&A answer requires a file that doesn't exist or is empty`                          | The scientist asked about an output that was never produced                                                                                          | Say so explicitly; do not invent findings. Offer to re-run the relevant pipeline stage.                                                                                                                                                                                                                                                                                                                                 |
+| `blank_qc` shows contamination, scientist asks "which site is affected?"             | Both negatives (`is_negative=TRUE` rows in metadata) are shared across all biological samples — decontam.jl uses them as a global pool, not per-site | Do NOT attribute contamination to a single site. Say: "The two negative controls (extraction blank + PCR-reagent blank) are shared across all 8 biological samples for this run, so any contamination finding applies to the run as a whole, not a specific site. To investigate site-specific contamination, additional per-site blanks would be needed." Reference `pipeline_state.json.shared_negatives` if present. |
 
 ## Verification
 

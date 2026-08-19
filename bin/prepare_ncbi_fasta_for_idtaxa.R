@@ -129,14 +129,18 @@ for (i in seq_len(n_tax_batches)) {
 #     taxa  <- LearnTaxa(seqs, taxonomy, rank = ranks)
 format_lineage <- function(taxid) {
     lin        <- taxid_to_lineage[[taxid]]
-    taxa_parts <- sapply(rank_levels, function(r) {
+    # Each missing rank gets a level-suffixed placeholder so DECIPHER's LearnTaxa
+    # doesn't see the same name ("unassigned") at multiple levels (it errors
+    # with "rank matches a name at the wrong level: unassigned" otherwise).
+    taxa_parts <- sapply(seq_along(rank_levels), function(i) {
+        r <- rank_levels[i]
         val <- lin[[r]]
-        if (!is.null(val) && nzchar(val)) val else "unassigned"
+        if (!is.null(val) && nzchar(val)) val else paste0("unassigned_L", i)
     })
     paste(c("Root", taxa_parts), collapse = ";")
 }
 
-unassigned_lineage <- paste(c("Root", rep("unassigned", length(rank_levels))), collapse = ";")
+unassigned_lineage <- paste(c("Root", paste0("unassigned_L", seq_along(rank_levels))), collapse = ";")
 
 new_headers <- mapply(function(acc_nv, acc_full) {
     tid <- acc_to_taxid[acc_nv]
@@ -150,8 +154,8 @@ new_headers <- mapply(function(acc_nv, acc_full) {
 
 names(dna_seqs) <- new_headers
 
-n_assigned   <- sum(!str_detect(new_headers, "unassigned$"))
-n_unassigned <- sum( str_detect(new_headers, "unassigned$"))
+n_assigned   <- sum(!grepl("unassigned_L[0-9]+", new_headers))
+n_unassigned <- sum(grepl("unassigned_L[0-9]+", new_headers))
 message("Headers assigned: ", n_assigned, " | unassigned: ", n_unassigned)
 
 # --- Step 4 (optional): Orient sequences to a consistent strand ---
