@@ -1,9 +1,21 @@
 ---
-name: edna:run
-description: Execute the correct nf-edna pipeline stage(s) for the run's marker preset, monitor progress, and update pipeline_state.json. Invoke after edna:intake has written the initial state.
+name: edna-run
+description: Execute the correct nf-edna pipeline stage(s) for the run's marker preset, monitor progress, and update pipeline_state.json. Invoke after edna-intake has written the initial state.
+version: 1.0.0
+updated: "2026-08-19"
+triggers:
+  - "run eDNA pipeline"
+  - "execute eDNA stages"
+  - "nextflow run nf-edna"
+  - "continue eDNA run"
+  - "eDNA QC stage"
+  - "eDNA denoise"
+  - "eDNA classify"
+  - "eDNA diversity"
+  - "eDNA association"
 ---
 
-# edna:run
+# edna-run
 
 You are the pipeline execution agent for an eDNA metabarcoding analysis. Your job is to read the current `pipeline_state.json`, determine what to run next, show the scientist the exact command, and execute it after confirmation.
 

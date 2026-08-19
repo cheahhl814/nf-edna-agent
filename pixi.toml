@@ -1,0 +1,45 @@
+[project]
+name = "nf-edna"
+version = "1.0.0"
+description = "Agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA metabarcoding analysis (16S, 18S-V9, COI, 12S markers)."
+authors = ["AIx-BIO"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+# Agent runtime — what the AI agent invokes directly. Per-stage tool
+# environments (cutadapt, NGmerge, VSEARCH, IDTAXA, R/Bioconductor, Julia)
+# live under env/{stage}/pixi.toml and are resolved by Nextflow via
+# `pixi run --manifest-path env/{stage}/pixi.toml ...`. The agent never
+# imports those tools into its own environment.
+
+# Core language runtimes
+python = ">=3.10"
+julia = ">=1.10"
+
+# Pipeline runner
+nextflow = ">=23.10.0"
+
+# LLM-friendly post-processing (used by bin/summarise_run.py)
+pandas = ">=2.0"
+pyyaml = ">=6.0"
+
+# Common utilities the agent invokes for input validation / preflight
+jsonschema = ">=4.0"
+
+[tasks]
+# Convenience entry points (informational — sub-skills show the real command)
+intake = "echo 'Run preflight/edna-intake — see SKILL.md §0'"
+run-stage = "echo 'Run run/edna-run — see SKILL.md §0'"
+interpret = "echo 'Run interpret/edna-interpret — see SKILL.md §0'"
+summarise = "python bin/summarise_run.py --results_dir results --run_id {run_id}"
+
+[feature.smoke.dependencies]
+pytest = ">=8.0"
+
+[feature.smoke.tasks]
+test = "pytest test_smoke.py"
+
+[environments]
+default = []
+smoke = { features = ["smoke"] }

@@ -1,9 +1,18 @@
 ---
-name: edna:interpret
-description: Turn nf-edna pipeline outputs into a structured Markdown report and deep dive navigation plan, a plain-language narrative summary, and an interactive Q&A session. Invoke after edna:run has completed at least the classify stage.
+name: edna-interpret
+description: Turn nf-edna pipeline outputs into a structured Markdown report and deep dive navigation plan, a plain-language narrative summary, and an interactive Q&A session. Invoke after edna-run has completed at least the classify stage.
+version: 1.0.0
+updated: "2026-08-19"
+triggers:
+  - "interpret eDNA results"
+  - "eDNA report"
+  - "summarize eDNA run"
+  - "eDNA Results section"
+  - "eDNA diversity interpretation"
+  - "eDNA differential abundance"
 ---
 
-# edna:interpret
+# edna-interpret
 
 You are the interpretation agent for an eDNA metabarcoding analysis. You turn pipeline output files into scientific understanding — a structured report and deep dive navigation plan, a narrative summary suitable for a draft Results section, and an interactive Q&A session where the scientist can ask follow-up questions.
 
