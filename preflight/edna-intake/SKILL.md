@@ -1,7 +1,7 @@
 ---
 name: edna-intake
 description: "Validate eDNA metabarcoding run inputs and write the initial pipeline_state.json with a GO / GO-WITH-WARNINGS / NO-GO verdict. Mirrors the bettamt-preflight pattern (gather inputs → compute evidence → write the machine contract). Computes 6 evidence items (marker, manifest schema, sample-count parity, metadata completeness, IDTAXA model, disk + tool availability) and refuses to write a GO verdict if any required tool or input is missing. The downstream run/edna-run sub-skill refuses to execute without verdict ≥ GO-WITH-WARNINGS. Has 7 explicit ask-user stop points (SP1–SP7) that fire only when evidence is ambiguous. Triggers: 'new eDNA run', 'start eDNA run', 'eDNA intake', 'resume eDNA run', 'eDNA pipeline parameters', 'marker gene 16S 18S COI 12S', 'set up eDNA metabarcoding'."
-version: 1.1.0
+version: 1.1.1
 updated: "2026-08-19"
 triggers:
   - "new eDNA run"
@@ -72,13 +72,17 @@ Use this skill when you need to:
 
 This sub-skill has **7 stop points** (SP1–SP7). Each fires only when the evidence is ambiguous. The format is **Evidence + Recommend + Options**. If the evidence is unambiguous, the agent auto-picks the default and proceeds silently.
 
-### SP1 — Marker gene not stated
+### SP1 — Marker gene ambiguous
 
 | Trigger | Evidence check | Action |
 | --- | --- | --- |
-| User did not say which marker (16S / 18S-V9 / COI / 12S) | Preset cannot be selected | Ask: "I see no marker in your brief. Pick: (A) **16S** (prokaryotes), (B) **18S-V9** (eukaryotes, aquatic biodiversity), (C) **COI** (eukaryotes, invertebrates), (D) **12S** (eukaryotes, vertebrates), (E) I'll tell you now" |
+| User did not say which marker (16S / 18S-V9 / COI / 12S) | Preset cannot be selected | Ask: "I see no marker in your brief. Pick: (A) **16S** (prokaryotes; 341F/806R; 350–550 bp amplicon), (B) **18S-V9** (eukaryotes, aquatic biodiversity), (C) **COI** (eukaryotes, invertebrates), (D) **12S** (eukaryotes, vertebrates; MiFish-U/E primers; 150–200 bp amplicon), (E) I'll tell you now" |
+| R1 reads start with `TCGGT…` (6-mer) AND R2 reads start with `CATAGTGGGGTATCTAATCCCAGTTTG` (28 bp) | Reads strongly indicate **MiFish-U 12S** — do not auto-pick 16S just because the 6-mer matches 16S V3 interior | Ask: "R2 begins with the MiFish-U reverse primer `CATAGTGGGGTATCTAATCCCAGTTTG`. R1 has `GTCGGTAAAACTCGTGCCAGC` (MiFish-U forward) at offset 0–5. Pick: (A) **12S / MiFish-U** (strongly recommended — matches R2 reverse primer signature), (B) different marker — I'll tell you, (C) abort" |
+| R1 reads start with `CCTACGGG…` (341F, 16S V3-V4) AND R2 reads start with `GGACTACHVGGGTWTCTAATCC` (806R) | Reads strongly indicate **16S V3-V4** | Ask: "R2 begins with the 806R reverse primer `GGACTACHVGGGTWTCTAATCC`. R1 has the 341F forward primer at offset 0. Pick: (A) **16S V3-V4** (recommended), (B) different marker, (C) abort" |
 
 **Auto-pick when**: user provides one of `16S` / `18S-V9` / `COI` / `12S` in the initial brief. Default: 16S with a warning (most common).
+
+**CRITICAL: Never auto-pick 16S just because R1 reads start with the 6-mer `TCGGT`.** That 6-mer appears in BOTH the 16S V3 interior (`…TCGGTAAAACTCGTGCCAGC…`) AND the MiFish-U forward primer (`GTCGGTAAAACTCGTGCCAGC`). The discriminating step is **R2's reverse primer signature** — always check R2 before assigning a marker. See signature-library entry "Marker detection: the `TCGGT` ambiguity" for the full lesson from the AZAM_NSPSF battle-test.
 
 ### SP2 — Manifest schema unparseable
 

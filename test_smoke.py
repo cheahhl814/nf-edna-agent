@@ -115,12 +115,12 @@ class TestFrontmatterCoherence(unittest.TestCase):
 
     def test_master_and_subskil_versions_are_coherent(self):
         master = _frontmatter_version(_read("SKILL.md"))
-        self.assertEqual(master, "1.1.0",
-                          msg=f"master SKILL.md version is {master}, expected 1.1.0")
+        self.assertEqual(master, "1.1.1",
+                          msg=f"master SKILL.md version is {master}, expected 1.1.1")
         for f in SUB_SKILLS:
             v = _frontmatter_version(_read(f))
-            self.assertEqual(v, "1.1.0",
-                              msg=f"{f} version is {v}, expected 1.1.0")
+            self.assertEqual(v, "1.1.1",
+                              msg=f"{f} version is {v}, expected 1.1.1")
 
     def test_updated_dates_are_2026_08_19(self):
         for f in ["SKILL.md"] + SUB_SKILLS:
@@ -181,7 +181,7 @@ class TestPixiParse(unittest.TestCase):
         self.assertIn("dependencies", cfg, msg="pixi.toml missing [dependencies]")
         self.assertIn("tasks", cfg, msg="pixi.toml missing [tasks]")
         self.assertEqual(cfg["project"]["name"], "nf-edna")
-        self.assertEqual(cfg["project"]["version"], "1.1.0")
+        self.assertEqual(cfg["project"]["version"], "1.1.1")
 
     def test_pixi_has_nextflow_dep(self):
         with open(HERE / "pixi.toml", "rb") as fh:

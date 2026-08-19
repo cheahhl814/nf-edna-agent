@@ -1,7 +1,7 @@
 ---
 name: edna-run
 description: "Execute the correct nf-edna pipeline stage(s) for the run's marker preset, monitor progress, and update pipeline_state.json. Refuses to execute when the upstream preflight/edna-intake verdict is NO-GO. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'run eDNA pipeline', 'execute eDNA stages', 'nextflow run nf-edna', 'continue eDNA run', 'eDNA QC stage', 'eDNA denoise', 'eDNA classify', 'eDNA diversity', 'eDNA association'."
-version: 1.1.0
+version: 1.1.1
 updated: "2026-08-19"
 triggers:
   - "run eDNA pipeline"
@@ -272,6 +272,7 @@ If only some stages were requested and more remain:
 | Signature in stderr / log | Likely cause | Suggested fix |
 | --- | --- | --- |
 | `cutadapt: adapter not found / primer not found in reads` | Primer sequence is wrong, or orientation flipped | Verify primer sequences against the source publication; pass `--primer_mismatch_rate 0.2` to tolerate degenerate bases |
+| **Pipeline produced ASVs but species assignments look like Bacteria / Archaea when the dataset should be fish/vertebrate** | **Marker mis-assigned — the 6-mer `TCGGT` at R1 5' is ambiguous between 16S V3 interior and MiFish-U forward primer. Auto-picked 16S without checking R2 reverse primer.** | **Re-run preflight with explicit marker = `12S`. Spot-check: R2 should start with `CATAGTGGGGTATCTAATCCCAGTTTG` (MiFish-U reverse). The lesson: always confirm R2 reverse primer before assigning a marker.** See Finding 0 in `battle-test-report.md` for the AZAM_NSPSF case. |
 | `NGmerge: paired reads failed merge (insert size too small)` | Insert size < 30 bp, or reads are actually single-end not paired | Check `read1/read2-filepath` in manifest; if reads are SE, set `paired: false` in `params.json` and run with `-entry QC_ONLY` to start over |
 | `VSEARCH: no reads survive dereplication` | Too few reads, or `min_length` is too stringent | Lower `min_length` by 20–30 bp; verify the input FASTQ actually has reads (some pipelines produce empty outputs upstream) |
 | `IDTAXA: model file is corrupt or wrong format` | The `.rds` file wasn't saved with `saveRDS()`, or training script aborted | Retrain with `bin/train_idtaxa_model.R --input <fasta> --taxonomy <headers.tsv> --output <model.rds>` |

@@ -1,6 +1,6 @@
 [project]
 name = "nf-edna"
-version = "1.1.0"
+version = "1.1.1"
 description = "Agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA metabarcoding analysis (16S, 18S-V9, COI, 12S markers)."
 authors = ["AIx-BIO"]
 channels = ["conda-forge", "bioconda"]
