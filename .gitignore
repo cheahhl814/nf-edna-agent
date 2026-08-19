@@ -6,11 +6,27 @@
 !.crew/graphs/.gitkeep
 
 # Large reference databases — keep these untracked, scientists supply their own
-nf-edna/assets/**/*.rdata
-nf-edna/assets/**/*.rds
-nf-edna/assets/**/*.fasta
-nf-edna/assets/**/*.xlsx
-nf-edna/assets/**/*.list
+# (assets/ is at the skill root post-flatten; previously nested under nf-edna/)
+assets/**/*.rdata
+assets/**/*.rds
+assets/**/*.fasta
+assets/**/*.xlsx
+assets/**/*.list
+
+# Per-run outputs — must not be committed
+results/
+
+# Nextflow working directories + logs
+work/
+.nextflow.log*
+.nextflow/
+.cache/
+
+# Compressed sequencing reads (intermediates)
+/*.fq.gz
+/*.fastq.gz
+*.fq.gz
+*.fastq.gz
 
 # Internal-only — not for the public GitHub repo
 /docs/superpowers/
