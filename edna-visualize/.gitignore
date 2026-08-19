@@ -1,0 +1,23 @@
+# Per-run outputs — must not be committed
+results/
+run_state/
+preflight_evidence.json
+preflight_verdict.txt
+preflight.md
+pipeline_state.json
+run_summary.json
+
+# Generated figures and normalized tables — large, regenerate per machine
+*.pdf
+*.png
+*.svg
+*_relabundance.tsv
+*.converted.rds
+
+# Pixi env cache (resolved on first run, regenerated per machine)
+/.pixi/
+__pycache__/
+
+# Internal-only — not for the public GitHub repo
+/tests/
+**/pixi.lock

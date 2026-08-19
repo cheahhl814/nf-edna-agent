@@ -1,0 +1,35 @@
+[project]
+name = "eDNA-visualize"
+version = "1.0.0"
+description = "Publication-ready figure generation for environmental DNA (eDNA) metabarcoding analysis."
+authors = ["AIx-BIO"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+# Agent runtime — what the AI agent invokes directly. The R environments
+# that run the bin/ scripts (mia, miaViz, sechm, ComplexHeatmap, etc.)
+# live under env/visualization/pixi.toml and are resolved by the agent
+# via `pixi run --manifest-path env/...`.
+
+# Core language runtimes
+python = ">=3.10"
+
+# Common utilities for input validation / preflight
+pyyaml = ">=6.0"
+jsonschema = ">=4.0"
+
+[tasks]
+# Convenience entry points (informational — sub-skills show the real command)
+preflight = "echo 'Run preflight/edna-visualize-preflight — see SKILL.md §0'"
+run = "echo 'Run run/edna-visualize-run — see SKILL.md §0'"
+
+[feature.smoke.dependencies]
+pytest = ">=8.0"
+
+[feature.smoke.tasks]
+test = "pytest test_smoke.py"
+
+[environments]
+default = []
+smoke = { features = ["smoke"] }

@@ -1,0 +1,39 @@
+[project]
+name = "idtaxa-training"
+version = "1.0.0"
+description = "End-to-end training of DECIPHER IDTAXA taxonomic-classification models from raw reference sequences."
+authors = ["AIx-BIO"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+# Agent runtime — what the AI agent invokes directly. The R + Julia
+# environments that run the bin/ scripts (DECIPHER, Biostrings, rentrez,
+# ArgParse, etc.) live under env/classification/pixi.toml and are
+# resolved by the agent via `pixi run --manifest-path env/...`.
+
+# Core language runtimes
+python = ">=3.10"
+julia = ">=1.10"
+
+# Stage 1: NCBI FASTA → DECIPHER-format headers
+# (rentrez + xml2 + stringr + DECIPHER + Biostrings live in env/classification/pixi.toml)
+
+# Common utilities for input validation / preflight
+pyyaml = ">=6.0"
+jsonschema = ">=4.0"
+
+[tasks]
+# Convenience entry points (informational — sub-skills show the real command)
+preflight = "echo 'Run preflight/idtaxa-training-preflight — see SKILL.md §0'"
+run = "echo 'Run run/idtaxa-training-run — see SKILL.md §0'"
+
+[feature.smoke.dependencies]
+pytest = ">=8.0"
+
+[feature.smoke.tasks]
+test = "pytest test_smoke.py"
+
+[environments]
+default = []
+smoke = { features = ["smoke"] }

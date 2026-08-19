@@ -1,7 +1,7 @@
 ---
 name: nf-edna
 description: End-to-end agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA (eDNA) metabarcoding analysis across four marker genes — 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota). Drives intake → QC → denoise → classify → diversity → association stages with marker-specific presets, then turns outputs into a structured report. Mirrors the BettaMt ask-user-stop-points pattern and the canonical `bacterial-genome-analysis` evidence chain. Use when the user asks to "run an eDNA metabarcoding analysis", "process 16S/18S/COI/12S amplicon reads", "interpret eDNA results", or "set up an eDNA pipeline run". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream GBIF Darwin Core publishing).
-version: 1.1.1
+version: 1.1.2
 updated: "2026-08-19"
 triggers:
   - "run eDNA metabarcoding"
@@ -25,6 +25,8 @@ requires:
 
 # Meta-Skill: nf-edna
 
+> **v1.1.2.** Adds two auxiliary sub-skills for tasks the pipeline itself does not cover: `idtaxa-training/` (training a DECIPHER IDTAXA classifier from scratch — NCBI FASTA → DECIPHER headers → trained `.rds` → species list + classification; also includes a patched `bin/idtaxa_rds.R` that auto-detects DECIPHER RDX3 binary format) and `edna-visualize/` (publication-ready figure generation from the 4-level count tables — normalize → CLR heatmaps → stacked bars). Both live under this repo as standalone sub-directories with their own preflight + run sub-skills, smoke tests, and signature libraries. The main 5-stage pipeline (`preflight/edna-intake` → `run/edna-run` → `interpret/edna-interpret`) is unchanged. Composability section in this SKILL.md now references both new sub-skills.
+>
 > **v1.1.1.** Adds support for **DECIPHER RDX3 IDTAXA training files** (e.g., SILVA `SILVA_SSU_r138.2.rdata`, XZ- or gzip-compressed). `bin/idtaxa_rds.R` now auto-detects three model formats via magic-byte sniffing: standard RDS, gzipped RDS, and DECIPHER's RDX3 binary format (the 5-byte `RDX3\n` header is skipped before `unserialize()`). No user action needed — the same `idtaxa_model` path that previously broke on RDX3 files now loads transparently and caches a converted `.converted.rds` next to the original. Finding 7 added to `run/edna-run/SKILL.md` signature library.
 >
 > **v1.1.0.** Adds the canonical BettaMt / `bettamt-preflight` structure to all 3 sub-skills (§0 Inputs/Outputs contract, §0.5 Ask-User Stop Points with Evidence + Recommend + Options format, §Audience, §When to Use / §Do NOT use this skill, §Troubleshooting — Signature library, GO / GO-WITH-WARNINGS / NO-GO verdict gate). Master `§0.5 SP0` now has an explicit `Auto-pick when` operating rule. The 3 sub-skill procedure bodies (the Steps) are unchanged from v1.0.0 — only the structured wrappers were added. Mirrors `bioinfo-skill-creator/preflight/skill-creator-preflight/SKILL.md`.
@@ -178,6 +180,8 @@ results/16s-20260819-siteA/
 | `nextflow-pipelines` | Reference for the DSL2 idioms used in `modules/` and `main.nf`. |
 | `edna-gbif-publish` | After `interpret/edna-interpret`, publish occurrence data to GBIF. |
 | `geocoding` | Used internally by `bin/geocurate_fetch.R` if you enable geocuration for a run. |
+| **`idtaxa-training`** (this repo: `idtaxa-training/`) | Run **before** the first-ever nf-edna run if you don't yet have an IDTAXA `.rds` model. Wraps `prepare_ncbi_fasta_for_idtaxa.R` + `train_idtaxa_model.R` + `extract_scientific_names.jl` + (patched) `bin/idtaxa_rds.R`. Also useful for loading existing DECIPHER trainingFiles (e.g., SILVA `SILVA_SSU_r138.2.rdata`) without modification. |
+| **`edna-visualize`** (this repo: `edna-visualize/`) | Run **after** `interpret/edna-interpret` if you want publication-ready figures beyond the canonical `narrative.md` plots. Wraps `normalize_abundance.R` + `plot_heatmaps.R` + `plot_stacked_bar.R`. Accepts any 4-level count tables (nf-edna output OR any mia-compatible source). |
 
 ## Handoff contract
 

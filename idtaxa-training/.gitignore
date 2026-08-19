@@ -1,0 +1,28 @@
+# Per-run outputs — must not be committed
+results/
+run_state/
+preflight_evidence.json
+preflight_verdict.txt
+preflight.md
+pipeline_state.json
+run_summary.json
+
+# Trained models — large binaries, regenerate per machine
+*.rds
+*.rdata
+*.converted.rds
+
+# Reference FASTA — large, user-supplied
+*.fasta
+*.fa
+*.fasta.gz
+*.fa.gz
+*.ncbi.fasta
+
+# Pixi env cache (resolved on first run, regenerated per machine)
+/.pixi/
+__pycache__/
+
+# Internal-only — not for the public GitHub repo
+/tests/
+**/pixi.lock
