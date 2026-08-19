@@ -1,7 +1,7 @@
 ---
 name: edna-run
 description: "Execute the correct nf-edna pipeline stage(s) for the run's marker preset, monitor progress, and update pipeline_state.json. Refuses to execute when the upstream preflight/edna-intake verdict is NO-GO. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'run eDNA pipeline', 'execute eDNA stages', 'nextflow run nf-edna', 'continue eDNA run', 'eDNA QC stage', 'eDNA denoise', 'eDNA classify', 'eDNA diversity', 'eDNA association'."
-version: 1.1.2
+version: 1.1.3
 updated: "2026-08-19"
 triggers:
   - "run eDNA pipeline"

@@ -1,0 +1,27 @@
+# Per-run outputs — must not be committed
+results/
+run_state/
+preflight_evidence.json
+preflight_verdict.txt
+preflight.md
+pipeline_state.json
+run_summary.json
+
+# Reference databases — large binaries, user-supplied (downloaded by run sub-skill)
+*.rds
+*.rdata
+*.converted.rds
+*.fa
+*.fasta
+*.fasta.gz
+*.fa.gz
+*.arb.gz
+*.xlsx
+
+# Pixi env cache (resolved on first run, regenerated per machine)
+/.pixi/
+__pycache__/
+
+# Internal-only — not for the public GitHub repo
+/tests/
+**/pixi.lock

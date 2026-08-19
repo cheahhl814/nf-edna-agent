@@ -1,7 +1,7 @@
 ---
 name: edna-intake
 description: "Validate eDNA metabarcoding run inputs and write the initial pipeline_state.json with a GO / GO-WITH-WARNINGS / NO-GO verdict. Mirrors the bettamt-preflight pattern (gather inputs → compute evidence → write the machine contract). Computes 6 evidence items (marker, manifest schema, sample-count parity, metadata completeness, IDTAXA model, disk + tool availability) and refuses to write a GO verdict if any required tool or input is missing. The downstream run/edna-run sub-skill refuses to execute without verdict ≥ GO-WITH-WARNINGS. Has 7 explicit ask-user stop points (SP1–SP7) that fire only when evidence is ambiguous. Triggers: 'new eDNA run', 'start eDNA run', 'eDNA intake', 'resume eDNA run', 'eDNA pipeline parameters', 'marker gene 16S 18S COI 12S', 'set up eDNA metabarcoding'."
-version: 1.1.2
+version: 1.1.3
 updated: "2026-08-19"
 triggers:
   - "new eDNA run"

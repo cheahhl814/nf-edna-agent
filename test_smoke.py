@@ -115,12 +115,12 @@ class TestFrontmatterCoherence(unittest.TestCase):
 
     def test_master_and_subskil_versions_are_coherent(self):
         master = _frontmatter_version(_read("SKILL.md"))
-        self.assertEqual(master, "1.1.2",
-                          msg=f"master SKILL.md version is {master}, expected 1.1.2")
+        self.assertEqual(master, "1.1.3",
+                          msg=f"master SKILL.md version is {master}, expected 1.1.3")
         for f in SUB_SKILLS:
             v = _frontmatter_version(_read(f))
-            self.assertEqual(v, "1.1.2",
-                              msg=f"{f} version is {v}, expected 1.1.2")
+            self.assertEqual(v, "1.1.3",
+                              msg=f"{f} version is {v}, expected 1.1.3")
 
     def test_updated_dates_are_2026_08_19(self):
         for f in ["SKILL.md"] + SUB_SKILLS:

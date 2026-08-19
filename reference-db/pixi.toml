@@ -1,0 +1,40 @@
+[project]
+name = "reference-db"
+version = "1.0.0"
+description = "Curated catalog of reference-database direct-download URLs for the four nf-edna markers (16S, 18S-V9, COI, 12S) with workflows for retrieval and DECIPHER training."
+authors = ["AIx-BIO"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+# Agent runtime — what the AI agent invokes directly. The R environment
+# for validating DECIPHER files (DECIPHER, Biostrings, rentrez, etc.)
+# lives under env/classification/pixi.toml and is resolved by the agent
+# via `pixi run --manifest-path env/...`.
+
+# Core language runtimes
+python = ">=3.10"
+curl  = ">=8.0"   # for HTTP HEAD requests + downloads
+
+# Common utilities for input validation / preflight
+pyyaml = ">=6.0"
+jsonschema = ">=4.0"
+
+# Google Drive download helper (used by run sub-skill for SILVA + other
+# DECIPHER pre-trained files hosted on Drive)
+gdown = ">=5.0"
+
+[tasks]
+# Convenience entry points (informational — sub-skills show the real command)
+preflight = "echo 'Run preflight/reference-db-preflight — see SKILL.md §0'"
+run       = "echo 'Run run/reference-db-run — see SKILL.md §0'"
+
+[feature.smoke.dependencies]
+pytest = ">=8.0"
+
+[feature.smoke.tasks]
+test = "pytest test_smoke.py"
+
+[environments]
+default = []
+smoke  = { features = ["smoke"] }
