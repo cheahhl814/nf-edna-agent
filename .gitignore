@@ -28,6 +28,10 @@ work/
 *.fq.gz
 *.fastq.gz
 
+# Pixi env cache (resolved on first run, regenerated per machine)
+/.pixi/
+__pycache__/
+
 # Internal-only — not for the public GitHub repo
 /docs/superpowers/
 /tests/
