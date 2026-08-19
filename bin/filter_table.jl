@@ -93,10 +93,18 @@ function main()
     end
 
     original_val_type = eltype(meta_df[!, col_sym])
-    val = try
+    # If the column is Bool, accept "TRUE"/"FALSE" (R-style) in addition to
+    # Julia's "true"/"false". This handles QIIME2 metadata exports where
+    # boolean columns are spelled in uppercase.
+    val = if original_val_type == Bool
+      parsed = tryparse(Bool, val_str)
+      parsed === nothing ? tryparse(Bool, uppercase(val_str) == "TRUE" ? "true" : "false") : parsed
+    else
+      try
         parse(original_val_type, val_str)
-    catch
+      catch
         val_str # Fallback to string if parsing fails
+      end
     end
 
     op_func = Dict(

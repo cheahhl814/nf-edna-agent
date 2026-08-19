@@ -18,9 +18,16 @@ process trim {
             -j ${task.cpus} -g ${params.primers_fwd} --discard-untrimmed \
             -o ${sample_id}.fwd_trimmed.fastq.gz ${reads}
 
+        # NOTE: --maximum-length intentionally OMITTED. For short-amplicon
+        # markers like MiFish-U (170 bp amplicon + 251 bp MiSeq reads),
+        # R1+R2 read through the amplicon into the reverse-primer region,
+        # producing trimmed reads of ~225 bp. A --maximum-length cap would
+        # discard these reads before NGmerge can merge R1+R2 into a
+        # consensus. NGmerge (denoise/merge_pairend) enforces length
+        # filtering post-merge where it belongs.
         pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
             cutadapt --error-rate 0.1 --times 1 --overlap 3 \
-            --minimum-length ${params.min_length} --maximum-length ${params.max_length} \
+            --minimum-length ${params.min_length} \
             -j ${task.cpus} -a \${rev_primer_rc} \
             -o ${sample_id}.trimmed.fastq.gz ${sample_id}.fwd_trimmed.fastq.gz
         """
@@ -28,7 +35,7 @@ process trim {
         """
         pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
             cutadapt --error-rate 0.1 --times 1 --overlap 3 \
-            --minimum-length ${params.min_length} --maximum-length ${params.max_length} \
+            --minimum-length ${params.min_length} \
             -j ${task.cpus} -g ${params.primers_fwd} -G ${params.primers_rev} --discard-untrimmed \
             -o ${sample_id}_R1.trimmed.fastq.gz -p ${sample_id}_R2.trimmed.fastq.gz \
             ${reads[0]} ${reads[1]}

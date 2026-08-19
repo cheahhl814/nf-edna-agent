@@ -27,6 +27,16 @@ if (length(args$input_files) > 0) {
     # The first column will be '#OTU ID' and the second column is the abundance data for the sample.
     dt <- fread(file_path, skip = "#OTU ID", sep = "\t", check.names = FALSE)
 
+    # If the file is empty (no ASVs detected — e.g. very low-quality sample with
+    # no reads surviving UNOISE3), skip it: it would otherwise break the
+    # downstream merge with an 'Incompatible join types' error (logical vs
+    # character). The sample contributes a zero-count column in the merged
+    # table when downstream code joins the per-sample FASTAs back to it.
+    if (nrow(dt) == 0) {
+      cat(paste0("  WARNING: ", file_path, " has 0 ASVs — skipping merge\n"))
+      next
+    }
+
     # Extract sample ID from the file name
     sample_id <- sub("\\.table\\.tsv$", "", basename(file_path))
 

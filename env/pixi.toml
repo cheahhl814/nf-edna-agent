@@ -8,6 +8,12 @@ version = "0.1.0"
 env = { JULIA_PROJECT = "$PIXI_PROJECT_ROOT" }
 
 [tasks]
+# Auto-run Pkg.instantiate() the first time the env is activated, so the
+# Julia packages declared in sibling Project.toml (ArgParse, CSV, DataFrames,
+# FASTX, HypothesisTests, Statistics) are precompiled. Without this, the
+# decontam.jl script fails with: Package ArgParse ... is required but does
+# not seem to be installed.
+instantiate-julia-deps = "julia -e 'using Pkg; Pkg.instantiate()'"
 
 [dependencies]
 julia = ">=1.12.2,<1.13"

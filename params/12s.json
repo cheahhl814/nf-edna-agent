@@ -1,7 +1,7 @@
 {
   "marker": "12S",
   "min_length": 150,
-  "max_length": 200,
+  "max_length": 220,
   "kingdoms": "Eukaryota",
   "daa_level": "Species",
   "correlation_level": "Species",

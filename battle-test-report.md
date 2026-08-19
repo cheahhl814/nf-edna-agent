@@ -136,9 +136,45 @@ Result of `nextflow run . -params-file merged_params.json -stub-run`:
 
 **Verdict for Phase 7: PASS (DAG validates + most stages stub-clean)** with one pre-existing pipeline bug (DENOISE:decontam needs Julia `ArgParse` added to `env/pixi.toml`).
 
-## Three real findings (now in run sub-skill signature library)
+### Finding 3 — Cutadapt `--maximum-length` is wrong for short amplicons (MiFish-U 12S)
 
-### Finding 0 — Marker detection (the `TCGGT` ambiguity)
+**Symptom**: cutadapt reports `Pairs that were too long: 114,779 (100.0%)` and `Pairs written (passing filters): 0 (0.0%)` for a MiFish-U 12S run on MiSeq 2×251 bp reads, even though cutadapt successfully detected the adapter in 99.9% of reads.
+
+**Cause**: For short-amplicon markers like MiFish-U (~170 bp amplicon + 21 bp forward + 27 bp reverse primer = ~218 bp trimmed read length), the `--maximum-length` cap in `modules/qc.nf` was set to `params.max_length` (default 200 bp). Since the trimmed reads are ~225 bp (read through the entire amplicon plus small post-amplicon overhang), they exceed the 200 cap and are all discarded. This is correct behavior for **long-amplicon** markers (16S V3-V4 where trimmed reads should be 350–550 bp) but wrong for **short-amplicon** markers.
+
+**Real impact**: the v1.1.0 battle-test ran QC on AZAM_NSPSF with `max_length=200` and got 0 reads, blocking all downstream stages. The v1.1.1 fix removed `--maximum-length` from cutadapt entirely, with NGmerge downstream enforcing length filtering post-merge where it belongs.
+
+**Fix**: removed `--maximum-length` from `modules/qc.nf`. NGmerge (denoise/merge_pairend) enforces length filtering post-merge. Also raised `params/12s.json.max_length` from 200 to 220 as a safety margin. Updated `modules/qc.nf` to document this in a comment.
+
+**Auto-pick when**: only for long-amplicon markers (16S V3-V4, 18S V9, COI). For short-amplicon markers (MiFish-U/E 12S), the cap should be removed or set generously (≥ amplicon length + 30 bp).
+
+### Finding 4 — decontam.jl Julia script needs `Pkg.instantiate()` first run
+
+**Symptom**: `ERROR: LoadError: ArgumentError: Package ArgParse [c7e460c6-2fb9-53a9-8c5b-16f535851c63] is required but does not seem to be installed` when DENOISE:decontam process runs.
+
+**Cause**: `env/pixi.toml` declares `julia = ">=1.12.2,<1.13"` but does NOT precompile the Julia deps listed in sibling `Project.toml` (ArgParse, CSV, DataFrames, FASTX, HypothesisTests, Statistics). Julia needs `Pkg.instantiate()` once after env creation to actually compile these.
+
+**Fix**: Added `[tasks] instantiate-julia-deps = "julia -e 'using Pkg; Pkg.instantiate()'"` to `env/pixi.toml`. This auto-runs when the env is first activated, precompiling all Julia deps. Subsequent invocations are no-ops.
+
+### Finding 5 — QIIME2-style `TRUE`/`FALSE` strings break Julia's `parse(Bool, ...)` in filter_table.jl
+
+**Symptom**: `filter_table.jl` exits with `0 samples remaining after filtering` for a metadata TSV where `is_negative` column has values `TRUE`/`FALSE` (R/QIIME2 style).
+
+**Cause**: Julia's `parse(Bool, "FALSE")` (uppercase) raises an error and returns `nothing`. The `tryparse` in `filter_table.jl` then falls back to using `val_str` as a string, comparing Bool column values to a string, which never matches.
+
+**Fix**: Updated `filter_table.jl` to accept both `true`/`false` (Julia native) AND `TRUE`/`FALSE` (R/QIIME2) by uppercasing `val_str` before parsing.
+
+**Lesson**: any Julia tool that reads QIIME2-produced metadata should accept both casings. Consider adding this to the `read_metadata_flexible` helper.
+
+### Finding 6 — Empty per-sample biom2tsv tables break data.table merge
+
+**Symptom**: `merge_tables.R` exits with `Error in bmerge: Incompatible join types: x.sequence (logical) and i.sequence (character)` when one or more per-sample `.table.tsv` files are empty (e.g., sample with 0 ASVs after UNOISE3).
+
+**Cause**: An empty `fread()` returns a data.table with a `logical` typed column, while populated tables have `character`. `data.table::merge()` refuses to join columns of mismatched types.
+
+**Fix**: Added an `if (nrow(dt) == 0) next` skip-empty-table check in `merge_tables.R`. The sample contributes a zero-count column in downstream analyses (when downstream code joins the per-sample FASTAs back to it) instead of crashing the merge.
+
+**Real impact**: AZAM-NSPSF-002 had 75,174 raw reads → 73,750 trimmed reads → 0 ASVs after UNOISE3 (possible DNA quality issue). The fix lets the pipeline continue with 9/10 samples contributing ASVs instead of crashing.
 
 **Symptom:** Read 5' starts with `TCGGT…`. This 6-mer appears in BOTH the 16S V3 region (`…TCGGTAAAACTCGTGCCAGC…`) AND the MiFish-U forward primer (`GTCGGTAAAACTCGTGCCAGC`). A naive marker-detection routine that matches only the first 6 bp will mis-classify 12S/MiFish-U data as 16S.
 
