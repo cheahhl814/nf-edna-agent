@@ -21,7 +21,7 @@ All 8 battle-test phases ran on the real AZAM_NSPSF dataset. The preflight emitt
 | Marker gene | **12S (MiFish-U primer pair; fish eDNA)** |
 | Read length | 251 bp (MiSeq 2×251 PE) |
 | Instrument | Illumina MiSeq (`@M02133:266:000000000-LDYRB`) |
-| Sample IDs | 8 biological (AZAM-F1-1, F13-1, F2-1, NSPSF-002, PV5-2, RM7-10, S4-1, S5-1) + 2 negative controls (AZAM-F1-ve, AZAM-PCR-ve) |
+| Sample IDs | 8 biological (AZAM-F1-1, F13-1, F2-1, NSPSF-002, PV5-2, RM7-10, S4-1, S5-1) + 2 negative controls (AZAM-F1-ve extraction blank, AZAM-PCR-ve PCR-reagent blank). **Both negatives are shared across all 8 biological samples** for decontam — see "Shared negative-control design" section below. |
 | Read counts | 12,287 – 114,779 paired reads per sample; perfect R1=R2 parity |
 | Forward primer | `GTCGGTAAAACTCGTGCCAGC` (MiFish-U; 973/1000 R1 reads carry this primer at offset 0–5) |
 | Reverse primer | `CATAGTGGGGTATCTAATCCCAGTTTG` (MiFish-U reverse; R2 reads start with this) |
@@ -60,6 +60,32 @@ Definitive evidence for the correction:
 All intake-state files (`pipeline_state.json`, `params.json`, `intake_evidence.txt`, `merged_params.json`) were regenerated against `params/12s.json` (not `params/16s.json`), and the Nextflow stub run was repeated with the corrected merged params. The stub-run outcome is the same (DENOISE:decontam Julia dep bug, unrelated to marker choice).
 
 This correction is itself a real signature-library entry: **the 6-mer `TCGGT` is ambiguous between 16S V3 interior and MiFish-U forward primer**, and an LLM (or a human) must look further (full primer signature + R2 reverse-complement confirmation) before assigning a marker. Lesson captured below as Finding 0.
+
+## Shared negative-control design
+
+Per user instruction on 2026-08-19, the two negative controls (`AZAM-F1-ve` extraction blank + `AZAM-PCR-ve` PCR-reagent blank) are treated as **shared negatives for ALL 8 biological samples**, not paired only with the F1 site.
+
+**Implementation**: this is already the default behavior — `bin/decontam.jl` reads `metadata.tsv`, filters `is_negative==TRUE` rows globally, and uses the entire pool as the negative-control set for prevalence-based contaminant detection. No per-sample "which negatives apply to me" wiring exists. The metadata flags both `-ve` rows as `is_negative=TRUE`:
+
+```
+sample-id    site    is_negative    grouping_variable
+AZAM-F1-1    F1      FALSE          F1
+AZAM-F13-1   F13     FALSE          F13
+AZAM-F1-ve   F1      TRUE           F1     ← shared across all 8 biological samples
+AZAM-F2-1    F2      FALSE          F2
+AZAM-NSPSF-002 NSPSF FALSE          NSPSF
+AZAM-PCR-ve  PCR     TRUE           PCR    ← shared across all 8 biological samples
+AZAM-PV5-2   PV5     FALSE          PV5
+AZAM-RM7-10  RM7     FALSE          RM7
+AZAM-S4-1    S4      FALSE          S4
+AZAM-S5-1    S5      FALSE          S5
+```
+
+This means decontam will flag an ASV as a contaminant if it's significantly more prevalent in **either** negative control than in true samples. Two-blank decontam is more conservative than single-blank: an ASV only escapes flagging if it's rare in *both* PCR-ve and F1-ve, so the union of both negatives gives the strongest possible reagent/kit-contamination signal for the whole run.
+
+**Caveat for interpretation**: `interpret/edna-interpret`'s anomaly scan should NOT report blank-contamination warnings as site-specific to F1 (where AZAM-F1-ve was drawn). The blank is global; contamination findings apply to the whole run.
+
+**No state-file changes required**: the manifest, metadata, and pipeline_state.json are already correct for this design.
 
 ## Preflight verdict computation
 
