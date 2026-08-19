@@ -160,16 +160,16 @@ Determine:
 - `ENTRY`: the Nextflow entry point workflow name (or omit for default full workflow)
 - `RESUME`: add `-resume` if any stages are already complete
 
-Note: `-params-file` accepts only one file, so pass the marker preset first and let `PARAMS_FILE` override on top via a second `-params-file` flag — Nextflow merges multiple `-params-file` flags left-to-right, last one wins on conflicts.
+Note: `-params-file` accepts only one file. **Nextflow ≥ 24 rejects multiple `-params-file` flags** with `Can only specify option -params-file once` — the v1.0.0 body instructed this incorrectly. **Workaround:** merge `params/{marker}.json` (preset) + `results/{run_id}/params.json` (run-specific overrides, last wins) into one JSON object, then pass a single `-params-file <merged>.json`. See signature-library entry for this.
 
 For running all remaining stages from the start:
 ```bash
-nextflow run . -params-file params/{MARKER_PRESET} -params-file {PARAMS_FILE} -resume
+nextflow run . -params-file <merged_params.json> -resume
 ```
 
 For running up to a specific stage:
 ```bash
-nextflow run . -entry {ENTRY_POINT} -params-file params/{MARKER_PRESET} -params-file {PARAMS_FILE} -resume
+nextflow run . -entry {ENTRY_POINT} -params-file <merged_params.json> -resume
 ```
 
 Entry point mapping:
@@ -281,6 +281,9 @@ If only some stages were requested and more remain:
 | `nextflow: process cache invalidated` after `pixi add` | pixi env changes invalidate Nextflow's task hash | Run with `-resume` once to recover cached stages; new stages will recompute (expected) |
 | `ERROR ~ Command exit (code 137)` | OOM-killed (Linux) | The stage ran out of RAM; reduce `task.memory` in the corresponding module or split the run into smaller batches |
 | `Module not found: modules/X.nf` | Pipeline files were moved or the skill was deployed without the `modules/` dir | Verify `diff -rq @skills/nf-edna/ ~/.pi/agent/skills/nf-edna/` — the deploy copy should be md5-identical |
+| `Can only specify option -params-file once` | Nextflow ≥ 24 rejects multiple `-params-file` flags (the v1.0.0 body instructed this incorrectly) | Merge `params/{marker}.json` + `results/{run_id}/params.json` into one JSON object before `-params-file <merged>.json`. Use Python: `merged = {**preset, **run_specific}` (last wins) |
+| `ERROR: Cannot find Java or it's a wrong version -- Java 8 or later (up to 22) is installed` | Nextflow hard cap of Java 22; sdkman `current` defaults to Java 25 (fails) | Set `JAVA_HOME` to a Java 21 install before running nextflow: `export JAVA_HOME=/home/cheahhl814/.sdkman/candidates/java/21.0.11-tem` (or any Java 8–22) |
+| `ERROR: LoadError: ArgumentError: Package ArgParse ... is required but does not seem to be installed` (DENOISE:decontam Julia process) | Julia env in `env/pixi.toml` is missing `ArgParse` and other deps — `Pkg.instantiate()` was never run | Add to `env/pixi.toml` `[dependencies]`: `julia-argparse = "*"` (or run `pixi run --manifest-path env/pixi.toml julia -e 'using Pkg; Pkg.add("ArgParse")'`) |
 
 ## Verification
 

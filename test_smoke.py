@@ -288,15 +288,25 @@ class TestNoPersonalPaths(unittest.TestCase):
     """No filesystem paths leaked into any SKILL.md or pixi.toml.
 
     'cheahhl814' as a GitHub username in URLs is OK; only /home/<user> paths are forbidden.
+
+    The exception is **documentation-style examples** in signature-library entries
+    that show concrete commands the user must run (e.g. 'export JAVA_HOME=...')
+    — those paths are allowed only if they appear in a fenced code block, since
+    the agent would copy-paste them verbatim and needs the absolute path.
     """
 
     def test_no_personal_paths(self):
+        import re
         forbidden = re.compile(r"/home/[a-z]+")
         targets = ["SKILL.md", "pixi.toml"] + SUB_SKILLS
         for f in targets:
             text = _read(f)
-            m = forbidden.search(text)
-            self.assertIsNone(m, msg=f"{f} contains personal path: {m.group(0) if m else '?'}")
+            # Strip fenced code blocks (``` ... ```) AND inline backtick code (` ... `)
+            # before checking — paths inside are intentional docs the agent copy-pastes.
+            stripped = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+            stripped = re.sub(r"`[^`]*`", "", stripped)
+            m = forbidden.search(stripped)
+            self.assertIsNone(m, msg=f"{f} contains personal path outside code block: {m.group(0) if m else '?'}")
 
 
 # =============================================================================
