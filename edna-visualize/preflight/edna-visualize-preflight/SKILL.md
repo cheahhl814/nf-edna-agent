@@ -1,7 +1,7 @@
 ---
 name: edna-visualize-preflight
 description: Preflight validation for the eDNA-visualize sub-skill. Verifies (1) all 4 count tables + 3 taxonomy tables + metadata file exist and parse, (2) sample IDs are consistent across all 8 inputs, (3) mia/miaViz/sechm/ComplexHeatmap packages are available in pixi env, (4) output directory is writable, (5) --group_by column exists in metadata. Produces a GO / GO-WITH-WARNINGS / NO-GO verdict gate before any plotting script is invoked.
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "eDNA-visualize preflight"

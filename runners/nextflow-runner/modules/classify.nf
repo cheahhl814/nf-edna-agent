@@ -13,14 +13,14 @@ process classification_idtaxa {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/classification/pixi.toml \
-        Rscript ${baseDir}/bin/idtaxa_rds.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/classification/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/idtaxa_rds.R \
         --query_sequences ${rep_seqs_fna} --idtaxa_model ${idtaxa_model} \
         --output_classification idtaxa_classification.tsv \
         --output_confidence idtaxa_confidence.tsv
 
-    pixi run --manifest-path ${baseDir}/env/pixi.toml \
-        julia ${baseDir}/bin/filter_idtaxa_by_confidence.jl \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/decontam/pixi.toml \
+        julia ${baseDir}/runners/nextflow-runner/bin/filter_idtaxa_by_confidence.jl \
         --classification_file idtaxa_classification.tsv \
         --confidence_file idtaxa_confidence.tsv \
         --output_file idtaxa_classification_confident.tsv \
@@ -55,15 +55,15 @@ process agglomerate {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/classification/pixi.toml \
-        Rscript ${baseDir}/bin/agglomerate_data.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/classification/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/agglomerate_data.R \
         --asv_counts_file ${asv_counts} --taxonomy_file ${taxonomy_table} \
         --metadata_file ${metadata} --output_dir agglomerated_data \
         --kingdoms ${params.kingdoms} --ranks ${params.target_ranks}
 
     tail -n +2 agglomerated_data/asv_counts.tsv | awk '{print \$1}' > asv_ids_to_keep.txt
     sed 's/;size=[0-9]*//' ${asv_fasta} > rep_seqs_clean.fna
-    pixi run --manifest-path ${baseDir}/env/classification/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/classification/pixi.toml \
         seqtk subseq rep_seqs_clean.fna asv_ids_to_keep.txt > filtered_asvs.fna
     """
 }
@@ -90,14 +90,14 @@ process geocurate {
         ${asv_taxonomy} | sort -u > taxa_list.txt
 
     # Fetch occurrence data from GBIF and OBIS
-    pixi run --manifest-path ${baseDir}/env/geocuration/pixi.toml \
-        Rscript ${baseDir}/bin/geocurate_fetch.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/geocuration/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/geocurate_fetch.R \
         --taxa taxa_list.txt \
         --cache_dir occurrence_cache
 
     # Check geographic concordance
-    pixi run --manifest-path ${baseDir}/env/geocuration/pixi.toml \
-        Rscript ${baseDir}/bin/geocurate_check.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/geocuration/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/geocurate_check.R \
         --taxa taxa_list.txt \
         --coords ${params.geocurate_coords} \
         --buffer ${params.geocurate_buffer} \

@@ -1,7 +1,7 @@
 ---
 name: nf-edna
 description: End-to-end agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA (eDNA) metabarcoding analysis across four marker genes — 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota). Drives intake → QC → denoise → classify → diversity → association stages with marker-specific presets, then turns outputs into a structured report. Mirrors the BettaMt ask-user-stop-points pattern and the canonical `bacterial-genome-analysis` evidence chain. Use when the user asks to "run an eDNA metabarcoding analysis", "process 16S/18S/COI/12S amplicon reads", "interpret eDNA results", or "set up an eDNA pipeline run". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream GBIF Darwin Core publishing).
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "run eDNA metabarcoding"
@@ -25,6 +25,8 @@ requires:
 
 # Meta-Skill: nf-edna
 
+> **v1.1.4.** Restructures the skill layout: all Nextflow pipeline files (`main.nf`, `nextflow.config`, `modules/`, `params/`, `env/`, and the 14 Nextflow-invoked `bin/` scripts) are moved into `runners/nextflow-runner/`, mirroring the canonical `bacterial-genome-analysis` `runners/nextflow-runner/` convention. The 7 sub-skill-local `bin/` scripts (used by `idtaxa-training`, `edna-visualize`, `reference-db`) remain at the skill root. A new `runners/nextflow-runner/SKILL.md` documents the runner's structure, workflow entry points, per-stage pixi envs, and marker presets. All module paths (`${baseDir}/bin/` → `${baseDir}/runners/nextflow-runner/bin/`, `${baseDir}/env/` → `${baseDir}/runners/nextflow-runner/env/`) and SKILL.md/README.md/battle-test-report.md references updated. 38/38 smoke tests still pass after the move.
+>
 > **v1.1.3.** Adds a third auxiliary sub-skill: `reference-db/` (curated catalog of direct-download URLs for the 4 nf-edna marker reference databases — SILVA 16S/18S, PR2 18S, MIDORI2/BOLD COI, MitoFish 12S — with workflows for retrieval and DECIPHER training when no pre-trained file exists). The catalog includes DECIPHER-pre-trained files (load directly via patched `bin/idtaxa_rds.R`), pre-trained trainingFiles from the DECIPHER Downloads page (SILVA, PR2, UNITE, GTDB, RDP, Contax, Warcup, Fungal LSU), and raw references (MIDORI2, BOLD, MitoFish) that chain to `idtaxa-training` for DECIPHER training. 6-stop-point preflight (marker, disk, URL connectivity, assets dir, license acceptance, training prerequisites) + 4-stop-point run sub-skill (download, validate, train-if-needed). 25-test smoke test suite. Composability section now references the new sub-skill.
 >
 > **v1.1.2.** Adds two auxiliary sub-skills for tasks the pipeline itself does not cover: `idtaxa-training/` (training a DECIPHER IDTAXA classifier from scratch — NCBI FASTA → DECIPHER headers → trained `.rds` → species list + classification; also includes a patched `bin/idtaxa_rds.R` that auto-detects DECIPHER RDX3 binary format) and `edna-visualize/` (publication-ready figure generation from the 4-level count tables — normalize → CLR heatmaps → stacked bars). Both live under this repo as standalone sub-directories with their own preflight + run sub-skills, smoke tests, and signature libraries. The main 5-stage pipeline (`preflight/edna-intake` → `run/edna-run` → `interpret/edna-interpret`) is unchanged. Composability section in this SKILL.md now references both new sub-skills.
@@ -102,7 +104,7 @@ If auto-detection is ambiguous, ask the user one short question (see **SP0** bel
 
 ### 0.4 Bash vs Nextflow decision
 
-**Default: bash recipes inside `run/edna-run` invoke `nextflow run` under the hood.** The `run/edna-run` sub-skill constructs the `nextflow run main.nf -params-file params/{marker}.json -params-file ...` command and shows it to the user before execution. This is the same model as `bacterial-genome-analysis`'s `run/genome-run` sub-skill.
+**Default: bash recipes inside `run/edna-run` invoke `nextflow run` under the hood.** The `run/edna-run` sub-skill constructs the `nextflow run runners/nextflow-runner/main.nf -params-file params/{marker}.json -params-file ...` command and shows it to the user before execution. This is the same model as `bacterial-genome-analysis`'s `run/genome-run` sub-skill.
 
 If you need **production / HPC / cohort** runs (sge, slurm, lsf, AWS Batch), see **§Nextflow profiles** in `run/edna-run/SKILL.md` for the available profile names.
 
@@ -199,14 +201,14 @@ Each sub-skill produces machine-readable artifacts the next phase consumes:
 ## What NOT to do
 
 - Do **not** skip `preflight/edna-intake`. The pipeline expects a complete `pipeline_state.json` with every parameter validated.
-- Do **not** edit `params/{marker}.json` to add a new marker — the marker-specific behavior is hardcoded across `modules/` and `bin/` scripts. Add a new marker only via the canonical pipeline extension procedure (out of scope for v1.0.0).
+- Do **not** edit `runners/nextflow-runner/params/{marker}.json` to add a new marker — the marker-specific behavior is hardcoded across `modules/` and `bin/` scripts. Add a new marker only via the canonical pipeline extension procedure (out of scope for v1.0.0).
 - Do **not** delete `pipeline_state.json` mid-run. Nextflow's `-resume` and the sub-skill's stage-detection ladder both depend on it.
 - Do **not** commit `assets/`, `results/`, `work/`, `.nextflow.log*`, or `*.fq.gz` — see `.gitignore`.
 
 ## Reproducibility
 
 - Pipeline code: `main.nf`, `nextflow.config`, `modules/*.nf`, `bin/*`
-- Per-stage tool envs: `env/{stage}/pixi.toml` (lockfile at `env/Manifest.toml` + `env/Project.toml`)
+- Per-stage tool envs: `env/{stage}/pixi.toml` (lockfile at `runners/nextflow-runner/env/Manifest.toml` + `runners/nextflow-runner/env/Project.toml`)
 - Marker presets: `params/{16s,18s-v9,coi,12s}.json`
 - Run artifacts: `results/{run_id}/` (gitignored)
 - Skill spec: `SKILL.md` (this file), `preflight/edna-intake/SKILL.md`, `run/edna-run/SKILL.md`, `interpret/edna-interpret/SKILL.md`

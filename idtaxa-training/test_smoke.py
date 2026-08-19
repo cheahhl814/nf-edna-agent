@@ -118,7 +118,7 @@ class TestIdtaxaTrainingSkill(unittest.TestCase):
         self.assertIsNotNone(fm, "Could not parse frontmatter")
         for key in REQUIRED_FRONT:
             self.assertIn(key, fm, f"Root SKILL.md missing frontmatter key: {key}")
-        self.assertEqual(fm["version"], "1.1.3", "Root version must be 1.1.3")
+        self.assertEqual(fm["version"], "1.1.4", "Root version must be 1.1.4")
 
     def test_04_sub_skills_have_required_frontmatter(self):
         """All 2 sub-skill SKILL.md files must have valid frontmatter."""
@@ -129,7 +129,7 @@ class TestIdtaxaTrainingSkill(unittest.TestCase):
             for key in REQUIRED_FRONT:
                 self.assertIn(key, fm, f"{rel} missing frontmatter key: {key}")
             self.assertEqual(
-                fm["version"], "1.1.3", f"{rel} version must be 1.0.0 (got {fm['version']})"
+                fm["version"], "1.1.4", f"{rel} version must be 1.0.0 (got {fm['version']})"
             )
 
     def test_05_sub_skills_have_required_sections(self):

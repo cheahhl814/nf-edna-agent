@@ -13,7 +13,7 @@ process trim {
         """
         rev_primer_rc=\$(echo "${params.primers_rev}" | tr 'ACGTacgt' 'TGCAtgca' | rev)
 
-        pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
+        pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/qc/pixi.toml \
             cutadapt --error-rate 0.1 --times 1 --overlap 3 \
             -j ${task.cpus} -g ${params.primers_fwd} --discard-untrimmed \
             -o ${sample_id}.fwd_trimmed.fastq.gz ${reads}
@@ -25,7 +25,7 @@ process trim {
         # discard these reads before NGmerge can merge R1+R2 into a
         # consensus. NGmerge (denoise/merge_pairend) enforces length
         # filtering post-merge where it belongs.
-        pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
+        pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/qc/pixi.toml \
             cutadapt --error-rate 0.1 --times 1 --overlap 3 \
             --minimum-length ${params.min_length} \
             -j ${task.cpus} -a \${rev_primer_rc} \
@@ -33,7 +33,7 @@ process trim {
         """
     } else {
         """
-        pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
+        pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/qc/pixi.toml \
             cutadapt --error-rate 0.1 --times 1 --overlap 3 \
             --minimum-length ${params.min_length} \
             -j ${task.cpus} -g ${params.primers_fwd} -G ${params.primers_rev} --discard-untrimmed \
@@ -59,9 +59,9 @@ process fastqc {
     def raw_files     = single_end ? reads.toString() : reads.collect{ it.toString() }.join(' ')
     def trimmed_files = trim_single_end ? trimmed_reads.toString() : trimmed_reads.collect{ it.toString() }.join(' ')
     """
-    pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/qc/pixi.toml \
         fastqc -t ${task.cpus} ${raw_files}
-    pixi run --manifest-path ${baseDir}/env/qc/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/qc/pixi.toml \
         fastqc -t ${task.cpus} ${trimmed_files}
     """
 }

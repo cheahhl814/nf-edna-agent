@@ -9,7 +9,7 @@ process merge_pairend {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/denoise/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/denoise/pixi.toml \
         NGmerge -1 ${reads[0]} -2 ${reads[1]} -o ${sample_id}.merged.fastq.gz -z
     """
 }
@@ -28,11 +28,11 @@ process denoise {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/denoise/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/denoise/pixi.toml \
         vsearch --fastx_uniques ${reads} --fastaout ${sample_id}.derep.fasta \
         --sizeout --minuniquesize 2 --fastq_ascii 33
 
-    pixi run --manifest-path ${baseDir}/env/denoise/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/denoise/pixi.toml \
         vsearch --cluster_unoise ${sample_id}.derep.fasta \
         --centroids ${sample_id}.sequences.fasta --biomout ${sample_id}.table.biom \
         --minsize 2 --unoise_alpha 2.0
@@ -50,7 +50,7 @@ process biom2tsv {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/denoise/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/denoise/pixi.toml \
         biom convert -i ${biom} -o ${sample_id}.table.tsv --to-tsv \
     || printf '# Constructed from biom file\n#OTU ID\t${sample_id}\n' \
         > ${sample_id}.table.tsv
@@ -71,8 +71,8 @@ process merge_denoise {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/denoise/pixi.toml \
-        Rscript ${baseDir}/bin/merge_tables.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/denoise/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/merge_tables.R \
         --input_files ${tables} --output_table feature-table.tsv
 
     cat ${fastas} > rep-seqs.fna
@@ -97,8 +97,8 @@ process decontam {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/pixi.toml \
-        julia ${baseDir}/bin/decontam.jl \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/decontam/pixi.toml \
+        julia ${baseDir}/runners/nextflow-runner/bin/decontam.jl \
         --feature_table ${asv_table} \
         --metadata ${metadata} \
         --rep_seqs ${rep_seqs} \
@@ -125,8 +125,8 @@ process filter_table {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/pixi.toml \
-        julia ${baseDir}/bin/filter_table.jl \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/decontam/pixi.toml \
+        julia ${baseDir}/runners/nextflow-runner/bin/filter_table.jl \
         --feature_table ${asv_table} \
         --rep_seqs ${rep_seqs} \
         --metadata ${metadata} \

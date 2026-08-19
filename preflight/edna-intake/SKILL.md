@@ -1,7 +1,7 @@
 ---
 name: edna-intake
 description: "Validate eDNA metabarcoding run inputs and write the initial pipeline_state.json with a GO / GO-WITH-WARNINGS / NO-GO verdict. Mirrors the bettamt-preflight pattern (gather inputs → compute evidence → write the machine contract). Computes 6 evidence items (marker, manifest schema, sample-count parity, metadata completeness, IDTAXA model, disk + tool availability) and refuses to write a GO verdict if any required tool or input is missing. The downstream run/edna-run sub-skill refuses to execute without verdict ≥ GO-WITH-WARNINGS. Has 7 explicit ask-user stop points (SP1–SP7) that fire only when evidence is ambiguous. Triggers: 'new eDNA run', 'start eDNA run', 'eDNA intake', 'resume eDNA run', 'eDNA pipeline parameters', 'marker gene 16S 18S COI 12S', 'set up eDNA metabarcoding'."
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "new eDNA run"
@@ -57,7 +57,7 @@ Use this skill when you need to:
 | Path | Format | Owner | Notes |
 | --- | --- | --- | --- |
 | `results/{run_id}/pipeline_state.json` | JSON | this skill | **Machine contract for `run/edna-run`.** Includes `run_id`, `pipeline`, `marker`, `verdict` (GO / GO-WITH-WARNINGS / NO-GO), `completed_stages`, `last_stage`, `params_used`, `outputs`. The `verdict` field is the gate `run/edna-run` reads. |
-| `results/{run_id}/params.json` | JSON | this skill | **Full parameter file for `nextflow run -params-file`.** Merged on top of the marker preset (`params/{marker}.json`). |
+| `results/{run_id}/params.json` | JSON | this skill | **Full parameter file for `nextflow run -params-file`.** Merged on top of the marker preset (`runners/nextflow-runner/params/{marker}.json`). |
 | `results/{run_id}/intake_evidence.txt` | text | this skill | Raw evidence output (file-existence checks, line counts, column-name parses, `which nextflow`, `df -h`) — kept for debugging. |
 
 ### Verdict gate
@@ -167,10 +167,10 @@ The procedure has **three phases**: (1) gather inputs, (2) compute evidence (six
 Ask if not already stated:
 
 > "Which marker gene are you running?
-> - **16S** (prokaryotes, V3-V4 or similar) → preset `params/16s.json`
-> - **18S V9** (eukaryotes, aquatic biodiversity) → preset `params/18s-v9.json`
-> - **COI** (eukaryotes, invertebrates) → preset `params/coi.json`
-> - **12S** (eukaryotes, vertebrates) → preset `params/12s.json`"
+> - **16S** (prokaryotes, V3-V4 or similar) → preset `runners/nextflow-runner/params/16s.json`
+> - **18S V9** (eukaryotes, aquatic biodiversity) → preset `runners/nextflow-runner/params/18s-v9.json`
+> - **COI** (eukaryotes, invertebrates) → preset `runners/nextflow-runner/params/coi.json`
+> - **12S** (eukaryotes, vertebrates) → preset `runners/nextflow-runner/params/12s.json`"
 
 Then ask:
 
@@ -367,7 +367,7 @@ Once confirmed:
 
 3. **Write `results/{run_id}/params.json`** — full parameter file for `nextflow run -params-file`:
 
-   This file is merged on top of the marker preset (`params/{16s|18s-v9|coi|12s}.json`) — only include values here that differ from the chosen preset, plus the always-required run-specific fields below:
+   This file is merged on top of the marker preset (`runners/nextflow-runner/params/{16s|18s-v9|coi|12s}.json`) — only include values here that differ from the chosen preset, plus the always-required run-specific fields below:
 
 ```json
 {
@@ -418,7 +418,7 @@ Tell the scientist:
 ## Verification
 
 - [ ] `results/{run_id}/pipeline_state.json` exists with `verdict` set to one of `GO` / `GO-WITH-WARNINGS` / `NO-GO`.
-- [ ] `results/{run_id}/params.json` exists and merges cleanly on top of `params/{marker}.json` (no missing required keys).
+- [ ] `results/{run_id}/params.json` exists and merges cleanly on top of `runners/nextflow-runner/params/{marker}.json` (no missing required keys).
 - [ ] `results/{run_id}/intake_evidence.txt` exists with all 7 evidence items recorded.
 - [ ] The downstream `run/edna-run` sub-skill accepts the run (verdict ≥ `GO-WITH-WARNINGS`) OR refuses with a clear pointer to the failing evidence item.
 

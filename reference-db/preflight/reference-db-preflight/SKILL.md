@@ -1,7 +1,7 @@
 ---
 name: reference-db-preflight
 description: Preflight validation for the reference-db sub-skill. Verifies (1) marker confirmed (16S/18S-V9/COI/12S), (2) disk space (≥ 5 GB), (3) Internet connectivity to canonical URL (HEAD request), (4) asset directory writable, (5) license accepted for the chosen reference, (6) if training required — DECIPHER + rentrez available. Produces a GO / GO-WITH-WARNINGS / NO-GO verdict gate before any download command is invoked.
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "reference-db preflight"

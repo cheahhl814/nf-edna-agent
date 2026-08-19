@@ -19,11 +19,11 @@ This meta-skill serves both **AI coding agents** and **human eDNA scientists**. 
 | # | Stage | Module | What it does | Sub-skill (agent orchestration) |
 |:---|:---|:---|:---|:---|
 | 0 | **Intake** | — | Gather run parameters, validate inputs, write `pipeline_state.json` | `preflight/edna-intake` |
-| 1 | **QC** | `modules/qc.nf` | Primer trimming (cutadapt), FastQC | `run/edna-run` |
-| 2 | **Denoise** | `modules/denoise.nf` | Pair merging (NGmerge), ASV inference (VSEARCH UNOISE3), decontamination | `run/edna-run` |
-| 3 | **Classify** | `modules/classify.nf` | IDTAXA classification, confidence filtering, rank agglomeration, optional geocuration | `run/edna-run` |
-| 4 | **Diversity** | `modules/diversity.nf` | Phylogenetic tree, alpha diversity, beta diversity (PERMANOVA, community typing) | `run/edna-run` |
-| 5 | **Association** | `modules/association.nf` | Differential abundance, taxon-environment and taxon-taxon correlation | `run/edna-run` |
+| 1 | **QC** | `runners/nextflow-runner/modules/qc.nf` | Primer trimming (cutadapt), FastQC | `run/edna-run` |
+| 2 | **Denoise** | `runners/nextflow-runner/modules/denoise.nf` | Pair merging (NGmerge), ASV inference (VSEARCH UNOISE3), decontamination | `run/edna-run` |
+| 3 | **Classify** | `runners/nextflow-runner/modules/classify.nf` | IDTAXA classification, confidence filtering, rank agglomeration, optional geocuration | `run/edna-run` |
+| 4 | **Diversity** | `runners/nextflow-runner/modules/diversity.nf` | Phylogenetic tree, alpha diversity, beta diversity (PERMANOVA, community typing) | `run/edna-run` |
+| 5 | **Association** | `runners/nextflow-runner/modules/association.nf` | Differential abundance, taxon-environment and taxon-taxon correlation | `run/edna-run` |
 | 6 | **Interpret** | — | Turn `run_summary.json` into structured report + narrative Results-section draft + interactive Q&A | `interpret/edna-interpret` |
 
 Each pipeline stage can be run incrementally via named Nextflow entry points (`QC_ONLY`, `DENOISE_ONLY`, `CLASSIFY_ONLY`, `DIVERSITY_ONLY`, or the default workflow for all stages including association), with `-resume` reusing cached work from prior stages.
@@ -77,8 +77,8 @@ nf-edna/
 
 ```bash
 # From the skill root
-nextflow run main.nf \
-  -params-file params/16s.json \
+nextflow run runners/nextflow-runner/main.nf \
+  -params-file runners/nextflow-runner/params/16s.json \
   -params-file path/to/run-specific-params.json \
   -resume
 ```
@@ -88,7 +88,7 @@ nextflow run main.nf \
 To run only through a given stage:
 
 ```bash
-nextflow run main.nf -entry CLASSIFY_ONLY -params-file ... -params-file ...
+nextflow run runners/nextflow-runner/main.nf -entry CLASSIFY_ONLY -params-file ... -params-file ...
 ```
 
 ## Marker presets (`params/`)
@@ -199,7 +199,7 @@ python3 bin/summarise_run.py \
 ## Reproducibility
 
 - Pipeline code: `main.nf`, `nextflow.config`, `modules/*.nf`, `bin/*`
-- Per-stage tool envs: `env/{stage}/pixi.toml` (lockfile at `env/Manifest.toml` + `env/Project.toml`)
+- Per-stage tool envs: `env/{stage}/pixi.toml` (lockfile at `runners/nextflow-runner/env/Manifest.toml` + `runners/nextflow-runner/env/Project.toml`)
 - Marker presets: `params/{16s,18s-v9,coi,12s}.json`
 - Run artifacts: `results/{run_id}/` (gitignored)
 - Skill spec: `SKILL.md` (this file), `preflight/edna-intake/SKILL.md`, `run/edna-run/SKILL.md`, `interpret/edna-interpret/SKILL.md`

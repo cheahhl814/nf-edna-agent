@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Smoke tests for nf-edna skill (v1.1.0 — BettaMt restructure + canonical compliance).
+"""Smoke tests for nf-edna skill (v1.1.4 — BettaMt restructure + canonical compliance + runners/nextflow-runner/ layout).
 
 Verifies the agent-skill wrapping is structurally sound:
 
 - All 4 SKILL.md files have valid YAML frontmatter (name, description, version,
   updated, triggers)
-- Master and sub-skill versions are coherent (v1.1.0)
+- Master and sub-skill versions are coherent (v1.1.4)
 - Sub-skill contract wiring (preflight → run → interpret via pipeline_state.json
   + run_summary.json)
 - pixi.toml parses cleanly with [project], [dependencies], [tasks]
-- Pipeline files are flattened (main.nf, nextflow.config, modules/, bin/,
-  params/, env/ at root; no nf-edna/ nested dir)
-- Per-stage pixi envs under env/ are preserved (unchanged)
+- Nextflow pipeline files live under runners/nextflow-runner/ (main.nf,
+  nextflow.config, modules/, bin/, params/, env/) — mirroring the
+  bacterial-genome-analysis runners/nextflow-runner/ convention
+- Per-stage pixi envs under runners/nextflow-runner/env/ are preserved
 - .claude/skills/ is removed (was the wrong location for Pi)
 - All marker presets (16s, 18s-v9, coi, 12s) are present
 - Git hygiene: .gitignore covers docs-corpus/.fingerprints + work/
@@ -43,30 +44,30 @@ SUB_SKILLS = [
 REQUIRED_FRONT = ("name", "description", "version", "updated", "triggers")
 
 PIPELINE_FILES = [
-    "main.nf",
-    "nextflow.config",
-    "modules/qc.nf",
-    "modules/denoise.nf",
-    "modules/classify.nf",
-    "modules/diversity.nf",
-    "modules/association.nf",
+    "runners/nextflow-runner/main.nf",
+    "runners/nextflow-runner/nextflow.config",
+    "runners/nextflow-runner/modules/qc.nf",
+    "runners/nextflow-runner/modules/denoise.nf",
+    "runners/nextflow-runner/modules/classify.nf",
+    "runners/nextflow-runner/modules/diversity.nf",
+    "runners/nextflow-runner/modules/association.nf",
 ]
 
 PER_STAGE_PIXI_ENVS = [
-    "env/qc/pixi.toml",
-    "env/denoise/pixi.toml",
-    "env/classification/pixi.toml",
-    "env/database/pixi.toml",
-    "env/diversity/pixi.toml",
-    "env/geocuration/pixi.toml",
-    "env/association/pixi.toml",
+    "runners/nextflow-runner/env/qc/pixi.toml",
+    "runners/nextflow-runner/env/denoise/pixi.toml",
+    "runners/nextflow-runner/env/classification/pixi.toml",
+    "runners/nextflow-runner/env/database/pixi.toml",
+    "runners/nextflow-runner/env/diversity/pixi.toml",
+    "runners/nextflow-runner/env/geocuration/pixi.toml",
+    "runners/nextflow-runner/env/association/pixi.toml",
 ]
 
 MARKER_PRESETS = [
-    "params/16s.json",
-    "params/18s-v9.json",
-    "params/coi.json",
-    "params/12s.json",
+    "runners/nextflow-runner/params/16s.json",
+    "runners/nextflow-runner/params/18s-v9.json",
+    "runners/nextflow-runner/params/coi.json",
+    "runners/nextflow-runner/params/12s.json",
 ]
 
 
@@ -115,12 +116,12 @@ class TestFrontmatterCoherence(unittest.TestCase):
 
     def test_master_and_subskil_versions_are_coherent(self):
         master = _frontmatter_version(_read("SKILL.md"))
-        self.assertEqual(master, "1.1.3",
-                          msg=f"master SKILL.md version is {master}, expected 1.1.3")
+        self.assertEqual(master, "1.1.4",
+                          msg=f"master SKILL.md version is {master}, expected 1.1.4")
         for f in SUB_SKILLS:
             v = _frontmatter_version(_read(f))
-            self.assertEqual(v, "1.1.3",
-                              msg=f"{f} version is {v}, expected 1.1.3")
+            self.assertEqual(v, "1.1.4",
+                              msg=f"{f} version is {v}, expected 1.1.4")
 
     def test_updated_dates_are_2026_08_19(self):
         for f in ["SKILL.md"] + SUB_SKILLS:
@@ -198,15 +199,21 @@ class TestPixiParse(unittest.TestCase):
 
 
 class TestPipelineFlatten(unittest.TestCase):
-    """The pipeline is flattened to the skill root — no nf-edna/ nested directory."""
+    """The Nextflow pipeline is moved into runners/nextflow-runner/ — no flattened files at the skill root."""
 
     def test_main_nf_at_root(self):
-        self.assertTrue((HERE / "main.nf").exists(),
-                         msg="main.nf missing from skill root (was nested under nf-edna/)")
+        """main.nf must be at runners/nextflow-runner/main.nf (NOT at the skill root)."""
+        self.assertTrue((HERE / "runners/nextflow-runner/main.nf").exists(),
+                         msg="main.nf missing from runners/nextflow-runner/")
+        self.assertFalse((HERE / "main.nf").exists(),
+                          msg="main.nf still at skill root — should be moved to runners/nextflow-runner/")
 
     def test_nextflow_config_at_root(self):
-        self.assertTrue((HERE / "nextflow.config").exists(),
-                         msg="nextflow.config missing from skill root")
+        """nextflow.config must be at runners/nextflow-runner/nextflow.config (NOT at the skill root)."""
+        self.assertTrue((HERE / "runners/nextflow-runner/nextflow.config").exists(),
+                         msg="nextflow.config missing from runners/nextflow-runner/")
+        self.assertFalse((HERE / "nextflow.config").exists(),
+                          msg="nextflow.config still at skill root — should be moved to runners/nextflow-runner/")
 
     def test_no_nested_nf_edna_dir(self):
         nested = HERE / "nf-edna"
@@ -214,12 +221,20 @@ class TestPipelineFlatten(unittest.TestCase):
                           msg="nf-edna/ nested directory still exists — flatten incomplete")
 
     def test_modules_bin_params_env_at_root(self):
+        """modules/, bin/, params/, env/ must be at runners/nextflow-runner/, not at skill root."""
         for d in ("modules", "bin", "params", "env"):
-            self.assertTrue((HERE / d).is_dir(),
-                             msg=f"{d}/ missing from skill root")
-        # Sanity: at least one .nf per stage module
-        self.assertTrue((HERE / "modules/qc.nf").exists(),
-                         msg="modules/qc.nf missing")
+            self.assertTrue((HERE / "runners/nextflow-runner" / d).is_dir(),
+                             msg=f"runners/nextflow-runner/{d}/ missing")
+        # modules/qc.nf must exist under runners/nextflow-runner/modules/
+        self.assertTrue((HERE / "runners/nextflow-runner/modules/qc.nf").exists(),
+                         msg="runners/nextflow-runner/modules/qc.nf missing")
+        # No flattened duplicates at skill root
+        self.assertFalse((HERE / "modules").exists(),
+                          msg="modules/ still at skill root — should be moved")
+        self.assertFalse((HERE / "params").exists(),
+                          msg="params/ still at skill root — should be moved")
+        self.assertFalse((HERE / "env").exists(),
+                          msg="env/ still at skill root — should be moved")
 
     def test_pipeline_files_all_present(self):
         for f in PIPELINE_FILES:

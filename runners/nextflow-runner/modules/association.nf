@@ -13,8 +13,8 @@ process differential_abundance {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/association/pixi.toml \
-        Rscript ${baseDir}/bin/differential_abundance.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/association/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/differential_abundance.R \
         --input_asv_counts ${asv_counts} --input_asv_taxonomy ${asv_taxonomy} \
         --input_metadata ${metadata} --output_dir . \
         --level_to_analyze "${params.daa_level}" \
@@ -40,15 +40,15 @@ process correlation_analysis {
     script:
     """
     mkdir -p correlation_analysis_genus correlation_analysis_family
-    pixi run --manifest-path ${baseDir}/env/association/pixi.toml \
-        Rscript ${baseDir}/bin/correlation_analysis.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/association/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/correlation_analysis.R \
         --input_asv_counts ${asv_counts} --input_asv_taxonomy ${asv_taxonomy} \
         --input_metadata ${metadata} --input_alpha_diversity ${alpha_diversity} \
         --fixed_effect_variable "${params.grouping_variable}" \
         --metadata_numeric_variables "${params.metadata_numeric_variables}" \
         --level_to_analyze "Genus" --output_dir correlation_analysis_genus
-    pixi run --manifest-path ${baseDir}/env/association/pixi.toml \
-        Rscript ${baseDir}/bin/correlation_analysis.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/association/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/correlation_analysis.R \
         --input_asv_counts ${asv_counts} --input_asv_taxonomy ${asv_taxonomy} \
         --input_metadata ${metadata} --input_alpha_diversity ${alpha_diversity} \
         --fixed_effect_variable "${params.grouping_variable}" \

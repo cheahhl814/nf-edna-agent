@@ -1,7 +1,7 @@
 ---
 name: edna-run
 description: "Execute the correct nf-edna pipeline stage(s) for the run's marker preset, monitor progress, and update pipeline_state.json. Refuses to execute when the upstream preflight/edna-intake verdict is NO-GO. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'run eDNA pipeline', 'execute eDNA stages', 'nextflow run nf-edna', 'continue eDNA run', 'eDNA QC stage', 'eDNA denoise', 'eDNA classify', 'eDNA diversity', 'eDNA association'."
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "run eDNA pipeline"
@@ -50,8 +50,8 @@ Use this skill when you need to:
 | Path | Source | Required? | Notes |
 | --- | --- | --- | --- |
 | `results/{run_id}/pipeline_state.json` | `preflight/edna-intake` | yes | Must exist with `verdict ∈ {GO, GO-WITH-WARNINGS}`. The `pipeline`, `marker`, `completed_stages`, `last_stage` fields drive stage routing. |
-| `results/{run_id}/params.json` | `preflight/edna-intake` | yes | The run-specific parameter overrides; merged on top of `params/{marker}.json` via a second `-params-file`. |
-| `params/{marker}.json` (16s / 18s-v9 / coi / 12s) | this skill (skill-bundled) | yes | The marker-specific preset; passed as the FIRST `-params-file` so user overrides win. |
+| `results/{run_id}/params.json` | `preflight/edna-intake` | yes | The run-specific parameter overrides; merged on top of `runners/nextflow-runner/params/{marker}.json` via a second `-params-file`. |
+| `runners/nextflow-runner/params/{marker}.json` (16s / 18s-v9 / coi / 12s) | this skill (skill-bundled) | yes | The marker-specific preset; passed as the FIRST `-params-file` so user overrides win. |
 
 ### Outputs (produced)
 
@@ -155,12 +155,12 @@ Note: Entry points `QC_ONLY`, `DENOISE_ONLY`, `CLASSIFY_ONLY`, `DIVERSITY_ONLY` 
 
 Determine:
 - `PIPELINE_DIR`: `.` (the current skill root — the pipeline is flattened at skill root since v1.0.0)
-- `MARKER_PRESET`: `params/{16s|18s-v9|coi|12s}.json` inside the skill root, chosen from `pipeline_state.json`'s `marker` field
+- `MARKER_PRESET`: `runners/nextflow-runner/params/{16s|18s-v9|coi|12s}.json` inside the skill root, chosen from `pipeline_state.json`'s `marker` field
 - `PARAMS_FILE`: `results/{run_id}/params.json`
 - `ENTRY`: the Nextflow entry point workflow name (or omit for default full workflow)
 - `RESUME`: add `-resume` if any stages are already complete
 
-Note: `-params-file` accepts only one file. **Nextflow ≥ 24 rejects multiple `-params-file` flags** with `Can only specify option -params-file once` — the v1.0.0 body instructed this incorrectly. **Workaround:** merge `params/{marker}.json` (preset) + `results/{run_id}/params.json` (run-specific overrides, last wins) into one JSON object, then pass a single `-params-file <merged>.json`. See signature-library entry for this.
+Note: `-params-file` accepts only one file. **Nextflow ≥ 24 rejects multiple `-params-file` flags** with `Can only specify option -params-file once` — the v1.0.0 body instructed this incorrectly. **Workaround:** merge `runners/nextflow-runner/params/{marker}.json` (preset) + `results/{run_id}/params.json` (run-specific overrides, last wins) into one JSON object, then pass a single `-params-file <merged>.json`. See signature-library entry for this.
 
 For running all remaining stages from the start:
 ```bash
@@ -282,7 +282,7 @@ If only some stages were requested and more remain:
 | `nextflow: process cache invalidated` after `pixi add` | pixi env changes invalidate Nextflow's task hash | Run with `-resume` once to recover cached stages; new stages will recompute (expected) |
 | `ERROR ~ Command exit (code 137)` | OOM-killed (Linux) | The stage ran out of RAM; reduce `task.memory` in the corresponding module or split the run into smaller batches |
 | `Module not found: modules/X.nf` | Pipeline files were moved or the skill was deployed without the `modules/` dir | Verify `diff -rq @skills/nf-edna/ ~/.pi/agent/skills/nf-edna/` — the deploy copy should be md5-identical |
-| `Can only specify option -params-file once` | Nextflow ≥ 24 rejects multiple `-params-file` flags (the v1.0.0 body instructed this incorrectly) | Merge `params/{marker}.json` + `results/{run_id}/params.json` into one JSON object before `-params-file <merged>.json`. Use Python: `merged = {**preset, **run_specific}` (last wins) |
+| `Can only specify option -params-file once` | Nextflow ≥ 24 rejects multiple `-params-file` flags (the v1.0.0 body instructed this incorrectly) | Merge `runners/nextflow-runner/params/{marker}.json` + `results/{run_id}/params.json` into one JSON object before `-params-file <merged>.json`. Use Python: `merged = {**preset, **run_specific}` (last wins) |
 | `ERROR: Cannot find Java or it's a wrong version -- Java 8 or later (up to 22) is installed` | Nextflow hard cap of Java 22; sdkman `current` defaults to Java 25 (fails) | Set `JAVA_HOME` to a Java 21 install before running nextflow: `export JAVA_HOME=/home/cheahhl814/.sdkman/candidates/java/21.0.11-tem` (or any Java 8–22) |
 | `ERROR: LoadError: ArgumentError: Package ArgParse ... is required but does not seem to be installed` (DENOISE:decontam Julia process) | Julia env in `env/pixi.toml` is missing `ArgParse` and other deps — `Pkg.instantiate()` was never run | Add to `env/pixi.toml` `[dependencies]`: `julia-argparse = "*"` (or run `pixi run --manifest-path env/pixi.toml julia -e 'using Pkg; Pkg.add("ArgParse")'`) |
 | `Error in readRDS(model.rdata): unknown input format` (DENOISE:CLASSIFY) | The IDTAXA model file is in DECIPHER's RDX3 binary format (e.g., SILVA trainingFile) — base R `readRDS()` cannot decode it | As of v1.1.1, `bin/idtaxa_rds.R` auto-detects 3 formats: standard RDS, gzipped RDS, and **DECIPHER RDX3** (XZ- or gzip-compressed). It skips the 5-byte `RDX3\n` header and calls `unserialize()` to recover the `trainingSet`. The script also caches a converted `.converted.rds` next to the original. No user action needed — just re-run. |

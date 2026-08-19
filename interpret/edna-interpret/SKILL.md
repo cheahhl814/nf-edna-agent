@@ -1,7 +1,7 @@
 ---
 name: edna-interpret
 description: "Turn nf-edna pipeline outputs into a structured Markdown report and deep dive navigation plan, a plain-language narrative summary, and an interactive Q&A session. Refuses to interpret if upstream pipeline_state.json.completed_stages lacks 'classify'. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'interpret eDNA results', 'eDNA report', 'summarize eDNA run', 'eDNA Results section', 'eDNA diversity interpretation', 'eDNA differential abundance'."
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "interpret eDNA results"

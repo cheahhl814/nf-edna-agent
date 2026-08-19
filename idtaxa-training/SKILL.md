@@ -1,7 +1,7 @@
 ---
 name: idtaxa-training
 description: End-to-end training of DECIPHER IDTAXA taxonomic-classification models from raw reference sequences. Wraps three stages — (1) NCBI FASTA → DECIPHER-format headers via `prepare_ncbi_fasta_for_idtaxa.R`, (2) DECIPHER-format FASTA → trained `Taxa Train` model via `train_idtaxa_model.R`, (3) trained model → species list + IDTAXA classification via `extract_scientific_names.jl` and the patched `idtaxa_rds.R` (which loads standard RDS, gzipped RDS, AND XZ-/gzip-compressed DECIPHER RDX3 binary files). Mirrors the BettaMt ask-user-stop-points pattern and the canonical `nf-edna` evidence chain. Use when the user asks to "train an IDTAXA model", "build a DECIPHER reference for X", "I have a 16S/18S/COI/12S FASTA, train a classifier", "IDTAXA from NCBI FASTA", "prepare reference for taxonomic classification", or "I need a SILVA/PR2/MitoFish replacement trained on my own sequences". Pairs with `nf-edna` (downstream classification) and `eDNA-visualize` (downstream figures).
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "train IDTAXA model"

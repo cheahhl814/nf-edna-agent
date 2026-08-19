@@ -11,12 +11,12 @@ process tree {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/diversity/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/diversity/pixi.toml \
         mafft --thread ${task.cpus} --auto ${rep_seqs_fna} > aligned-rep-seqs.fna
-    pixi run --manifest-path ${baseDir}/env/diversity/pixi.toml \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/diversity/pixi.toml \
         fasttree -nt -gtr aligned-rep-seqs.fna > unrooted-tree.nwk
-    pixi run --manifest-path ${baseDir}/env/diversity/pixi.toml \
-        Rscript ${baseDir}/bin/root_tree.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/diversity/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/root_tree.R \
         --input_tree unrooted-tree.nwk --output_tree rooted-tree.nwk
     """
 }
@@ -36,8 +36,8 @@ process alpha_diversity {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/diversity/pixi.toml \
-        Rscript ${baseDir}/bin/alpha_diversity.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/diversity/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/alpha_diversity.R \
         --input_asv_counts ${asv_counts} --input_metadata ${metadata} \
         --input_tree ${tree} --grouping_variable "${params.grouping_variable}" \
         --output_dir .
@@ -63,16 +63,16 @@ process beta_diversity {
 
     script:
     """
-    pixi run --manifest-path ${baseDir}/env/diversity/pixi.toml \
-        Rscript ${baseDir}/bin/beta_diversity.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/diversity/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/beta_diversity.R \
         --input_asv_counts ${asv_counts} --input_asv_taxonomy ${asv_taxonomy} \
         --input_metadata ${metadata} --input_tree ${tree} \
         --grouping_variable "${params.grouping_variable}" \
         --distance_metric "${params.distance_metric}" \
         --output_dir .
 
-    pixi run --manifest-path ${baseDir}/env/diversity/pixi.toml \
-        Rscript ${baseDir}/bin/community_typing.R \
+    pixi run --manifest-path ${baseDir}/runners/nextflow-runner/env/diversity/pixi.toml \
+        Rscript ${baseDir}/runners/nextflow-runner/bin/community_typing.R \
         --input_asv_counts ${asv_counts} --input_metadata ${metadata} \
         --clustering_method "${params.clustering_method}" \
         --num_clusters "${params.num_clusters}" --output_dir .

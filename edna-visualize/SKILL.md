@@ -13,7 +13,7 @@ description: >-
   plot, or I have agglomerated counts, make figures. Pairs with `nf-edna`
   (upstream: produces the count tables) and `idtaxa-training` (sibling: produces
   the model used to generate classifications).
-version: 1.1.3
+version: 1.1.4
 updated: "2026-08-19"
 triggers:
   - "make eDNA figures"
