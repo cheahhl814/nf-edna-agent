@@ -1,7 +1,7 @@
 ---
 name: edna-interpret
-description: Turn nf-edna pipeline outputs into a structured Markdown report and deep dive navigation plan, a plain-language narrative summary, and an interactive Q&A session. Invoke after edna-run has completed at least the classify stage.
-version: 1.0.0
+description: "Turn nf-edna pipeline outputs into a structured Markdown report and deep dive navigation plan, a plain-language narrative summary, and an interactive Q&A session. Refuses to interpret if upstream pipeline_state.json.completed_stages lacks 'classify'. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'interpret eDNA results', 'eDNA report', 'summarize eDNA run', 'eDNA Results section', 'eDNA diversity interpretation', 'eDNA differential abundance'."
+version: 1.1.0
 updated: "2026-08-19"
 triggers:
   - "interpret eDNA results"
@@ -14,29 +14,124 @@ triggers:
 
 # edna-interpret
 
+> **v1.1.0.** Adds the canonical BettaMt structure (§0 Inputs/Outputs contract, §0.5 Ask-User Stop Points with Evidence + Recommend + Options, §Troubleshooting — Signature library). The procedure body (Steps 1–5 below) is unchanged from v1.0.0 — only the structured wrappers were added. The Step 2b anomaly check has been formalized as SP2.
+
+## Audience
+
+This skill serves two simultaneous audiences:
+
+- **AI Coding Agents** — triggered by the phrases above. The agent must read `pipeline_state.json.completed_stages` and enforce the gate (SP1), run the anomaly scan (SP2), and write `<run_id>-report.md` grounded in real data from `run_summary.json` — never invent findings.
+- **Human eDNA scientists** — read this document as a workflow guide. The `## When to Use` / `## Do NOT use` sections explain *why* classification must complete first, *why* anomaly flags are surfaced before report-writing (not buried in Caveats), and *why* the Q&A answers must be grounded in the actual files for this run.
+
+## When to Use This Skill
+
+Use this skill when you need to:
+
+- **Interpret a completed eDNA run** (classification stage has run, optionally diversity + association too).
+- **Generate a structured `<run_id>-report.md`** with Run Summary, QC, ASV & Taxonomy, Diversity, DAA, Correlation, and Caveats sections.
+- **Generate a plain-language narrative** suitable for a manuscript Results-section draft.
+- **Enter an interactive Q&A session** with the scientist about the run's findings.
+
+## Do NOT use this skill
+
+- If `pipeline_state.json.completed_stages` does **not** contain `classify` (SP1 hard-stop). The report cannot be written without classified ASVs.
+- If you only want to **look at raw output files** without interpretation — use `Read` / `Bash` directly.
+- If you want to **re-run the pipeline** — invoke `run/edna-run` instead.
+- If the run is still **in progress** — wait for the pipeline to reach `last_stage: association` (or at minimum `last_stage: classify`).
+
+## 0. Inputs / Outputs contract
+
+### Inputs (consumed)
+
+| Path | Source | Required? | Notes |
+| --- | --- | --- | --- |
+| `results/{run_id}/pipeline_state.json` | `run/edna-run` | yes | `completed_stages` must include `classify` (SP1 gate). Used for `run_id`, `marker`, `params_used`, `outputs`. |
+| `results/{run_id}/run_summary.json` | `bin/summarise_run.py` (invoked by `run/edna-run`) | yes | The compact LLM-loadable summary. Provides `read_flow`, `blank_qc`, `asv_counts`, `taxonomy`, `top_taxa`, `alpha_diversity`, `beta_diversity`, `differential_abundance`, `correlations`, `notes`. |
+| `results/{run_id}/{stage}_output/...` | Nextflow pipeline | conditional | Read on-demand for detail not captured in the summary (full ASV lists, raw correlation tables, individual PDFs). |
+
+### Outputs (produced)
+
+| Path | Format | Owner | Notes |
+| --- | --- | --- | --- |
+| `results/{run_id}/{run_id}-report.md` | Markdown | this skill | The structured report (Step 3). Sections: Run Summary, QC Summary, ASV & Taxonomy Overview, Alpha Diversity, Beta Diversity, Differential Abundance, Correlation Analysis, Caveats. |
+| `results/{run_id}/narrative.md` | Markdown | this skill | A 2–3 paragraph plain-language summary suitable for a manuscript Results-section draft (Step 4). |
+| (no on-disk output for Q&A) | conversation | this skill | Q&A answers are given in-line; the scientist's questions are not persisted unless the user asks for a transcript (Step 5). |
+
+### Verdict gate enforcement
+
+Before reading any output, **read `pipeline_state.json.completed_stages`**. If `classify` is not present → SP1 fires (refuse to proceed; suggest running `run/edna-run` to completion).
+
+## 0.5 Ask-User Stop Points
+
+This sub-skill has **4 stop points** (SP1–SP4). Each fires only when the evidence is ambiguous. The format is **Evidence + Recommend + Options**.
+
+### SP1 — Stage-completeness gate
+
+| Trigger | Evidence check | Action |
+| --- | --- | --- |
+| `pipeline_state.json.completed_stages` lacks `classify` | Required stage missing | Hard-stop: "Classification has not run yet for this run (`completed_stages` = `<list>`). I can only interpret results from the classify stage onwards. Run `run/edna-run` to complete classification first, or I can describe what the QC/denoising outputs show so far — would you like that?" |
+
+**Auto-pick when**: `classify ∈ completed_stages`. No ask.
+
+### SP2 — Anomaly severity
+
+| Trigger | Evidence check | Action |
+| --- | --- | --- |
+| One or more anomalies found in Step 2b scan: zero ASVs, empty taxonomy, low confidence-filter retention, blank contamination, missing expected output files, very low read counts, no decontam filtering despite contaminated blanks | The report would mislead if these are silently buried in Caveats | Ask: "I detected `<N>` anomalies before writing the report (listed below). Pick: (A) **proceed** with interpretation, surfacing each anomaly prominently in Caveats (recommended), (B) **investigate first** — tell me which anomaly to dig into, (C) **abort** until upstream stages re-run\n\nAnomalies:\n- `<list>`" |
+
+**Auto-pick when**: zero anomalies detected. No ask.
+
+### SP3 — Report-scope ambiguity
+
+| Trigger | Evidence check | Action |
+| --- | --- | --- |
+| `completed_stages` contains `classify` but not `diversity` and not `association`; OR scientist asks "summarize what we have so far" mid-pipeline | Partial run; not all sections can be written | Ask: "Run is partially complete (`<list>`). Pick: (A) write the report sections for the stages that exist and mark the missing stages as 'Output unavailable' in each section (recommended), (B) write only the QC + ASV/Taxonomy sections (skip Diversity/DAA/Correlation), (C) wait until more stages complete" |
+
+**Auto-pick when**: `diversity ∈ completed_stages` AND `association ∈ completed_stages` (full run). No ask.
+
+### SP4 — Q&A termination
+
+| Trigger | Evidence check | Action |
+| --- | --- | --- |
+| Scientist signals completion ("thanks", "done", "exit", or no follow-up for ≥ 3 turns) | The session has reached its natural end | No ask needed for the response itself, but: when the Q&A mode terminates, **ask** one final clarification: "Before I close this interpretation session: pick (A) **save the Q&A transcript** to `results/{run_id}/qa_transcript.md`, (B) **discard** the transcript, (C) keep the report as-is and add the transcript inline to the report" |
+
+**Auto-pick when**: scientist is mid-Q&A. No ask (the Q&A itself is the conversation).
+
+### Operating rule
+
+> **Auto-pick when the evidence is unambiguous; ask when the agent genuinely cannot decide.** When asking, present the evidence first, then the recommendation, then 2–4 concrete options. Do not ask "what do you want?" — ask "I see X, recommend Y, which one of A/B/C?"
+
+## Description
+
 You are the interpretation agent for an eDNA metabarcoding analysis. You turn pipeline output files into scientific understanding — a structured report and deep dive navigation plan, a narrative summary suitable for a draft Results section, and an interactive Q&A session where the scientist can ask follow-up questions.
 
-## Step 1 — Locate the run
+## Prerequisites
+
+- **Environment**: pixi env with `python ≥ 3.10` (for `bin/summarise_run.py` if not already generated).
+- **Upstream evidence**: `results/{run_id}/pipeline_state.json` with `classify ∈ completed_stages` (SP1), and `results/{run_id}/run_summary.json` (generated by `run/edna-run` Step 8 when `association` completes, or on-demand by this skill).
+- **User-provided inputs**: `run_id`.
+
+## Procedure
+
+### Step 1 — Locate the run + enforce gate (SP1)
 
 Ask if not already stated:
 
 > "What is the `run_id` for the run you want to interpret?"
 
-Read `results/{run_id}/pipeline_state.json`. Check `completed_stages`.
+Read `results/{run_id}/pipeline_state.json`. **Enforce SP1**: `classify` must be in `completed_stages`. If only `qc` or `denoise` is complete:
 
-Minimum required: `classify` must be in `completed_stages`. If only `qc` or `denoise` is complete, say:
+> "Classification has not run yet for this run. I can only interpret results from the classify stage onwards. Run `run/edna-run` to complete classification first, or I can describe what the QC/denoising outputs show so far — would you like that?"
 
-> "Classification has not run yet for this run. I can only interpret results from the classify stage onwards. Run `/edna:run` to complete classification first, or I can describe what the QC/denoising outputs show so far — would you like that?"
-
-## Step 2 — Load run summary
+### Step 2 — Load run summary
 
 Check for `results/{run_id}/run_summary.json`. If it exists, read it — it is the primary data source for all subsequent steps and avoids re-reading every individual output file.
 
 If it does not exist, generate it:
 
 ```bash
-python3 nf-edna/bin/summarise_run.py \
-  --results_dir analyses/{analysis_id}/results \
+python3 bin/summarise_run.py \
+  --results_dir results \
   --run_id {run_id}
 ```
 
@@ -44,9 +139,9 @@ The summary provides: `read_flow`, `blank_qc`, `asv_counts`, `taxonomy` (classif
 
 Fall back to reading individual output files only for detail not captured in the summary (e.g., full ASV lists, raw correlation tables beyond top 10).
 
-## Step 2b — Anomaly check (before writing the report)
+### Step 2b — Anomaly scan (before writing the report; SP2 trigger)
 
-Before writing anything, scan for anomalies. Use `run_summary.json` where possible. If any are found, flag them explicitly to the scientist before proceeding:
+Before writing anything, scan for anomalies. Use `run_summary.json` where possible. If any are found, **SP2 fires** (ask user before proceeding) — do NOT silently bury anomalies in Caveats:
 
 - **Zero ASVs**: `asv_counts.raw` = 0 in summary, or `asv_table/feature-table_renamed.tsv` is empty
 - **Empty taxonomy**: `taxonomy.total_asvs` = 0 in summary, or `taxonomy/idtaxa_classification_confident.tsv` has no classified sequences
@@ -56,15 +151,9 @@ Before writing anything, scan for anomalies. Use `run_summary.json` where possib
 - **No decontam filtering despite contaminated blanks**: if `asv_table/decontam_summary.tsv` exists, check whether any ASVs with high prevalence in negative controls (> 30%) and zero prevalence in true samples were NOT flagged as contaminants — this may indicate overly permissive decontam thresholds.
 - **Low confidence-filter retention**: if `taxonomy.confidence_filter.pct_lost` > 20%, a significant fraction of ASVs failed confidence thresholds — note this in Caveats.
 
-For each anomaly found:
+### Step 3 — Mode 1: Structured report
 
-> "⚠️ Anomaly detected: {description}. This will be flagged as the first item in the Caveats section of the report."
-
-Ask: "Do you want to proceed with interpretation despite these anomalies, or investigate first?"
-
-## Step 3 — Mode 1: Structured report
-
-Write `results/{run_id}/report.md` with the following sections. Read each relevant output file before writing its section.
+Write `results/{run_id}/{run_id}-report.md` with the following sections. Read each relevant output file before writing its section.
 
 ### Run Summary
 
@@ -98,7 +187,7 @@ Report:
 From `run_summary.json`:
 - `asv_counts`: raw → decontam → filtered progression; `contaminants_flagged`
 - `taxonomy.total_asvs`, `taxonomy.kingdom_distribution`, `taxonomy.classification_rates` (% classified per rank)
-- `taxonomy.confidence_filter`: ASVs lost to confidence thresholding (if any)
+- `taxonomy.confidence_filter`: ASVs lost to confidence filtering (if any)
 - `taxonomy.read_loss_to_kingdom_filter`: reads lost after excluding non-target kingdoms
 - `top_taxa`: top 10 taxa by total reads at each available agglomeration rank (phylum/class/family/genus). Use these directly — do not re-sum the count tables unless you need finer detail.
 
@@ -174,7 +263,7 @@ If association stage did not run: note this section is unavailable.
 
 ### Caveats
 
-List any anomalies flagged in Step 2b, plus:
+List any anomalies flagged in SP2, plus:
 
 - Stages that did not run
 - Whether `asv_table/decontam_summary.tsv` exists; if absent, note that decontam details are unavailable and only ASV count difference can be reported
@@ -207,11 +296,11 @@ Marker-aware interpretation guidelines:
 
 After writing all sections, confirm to the scientist:
 
-> "Report written to `results/{run_id}/report.md`."
+> "Report written to `results/{run_id}/{run_id}-report.md`."
 
-## Step 4 — Mode 2: Narrative summary
+### Step 4 — Mode 2: Narrative summary
 
-Write a 2–3 paragraph plain-language summary of the findings, suitable for a draft Results section of a scientific paper. Append it to `results/{run_id}/report.md` under a `## Narrative Summary` heading and also print it to the terminal.
+Write a 2–3 paragraph plain-language summary of the findings, suitable for a draft Results section of a scientific paper. Append it to `results/{run_id}/{run_id}-report.md` under a `## Narrative Summary` heading and also print it to the terminal.
 
 The narrative should:
 
@@ -221,7 +310,7 @@ The narrative should:
 - Use past tense, passive voice where conventional ("reads were trimmed", "ASVs were classified")
 - Avoid pipeline-specific jargon (say "amplicon variants" not "ASVs" if writing for a general audience)
 
-## Step 5 — Mode 3: Interactive Q&A
+### Step 5 — Mode 3: Interactive Q&A
 
 After the report is written, enter Q&A mode:
 
@@ -240,7 +329,29 @@ For each question:
 3. Answer based on actual data, not assumptions
 4. If the answer requires a file that is missing or empty, say so explicitly
 
-Stay in Q&A mode until the scientist signals they are done (e.g., "thanks", "done", "exit").
+Stay in Q&A mode until the scientist signals they are done (e.g., "thanks", "done", "exit") — at which point SP4 fires (Q&A termination ask).
+
+## Troubleshooting — Signature library
+
+| Signature in stderr / log | Likely cause | Suggested fix |
+| --- | --- | --- |
+| `run_summary.json missing` | `bin/summarise_run.py` was not invoked at the end of `run/edna-run` (Stage 8 was skipped) | Run `python3 bin/summarise_run.py --results_dir results --run_id {run_id}` first, then re-invoke `interpret/edna-interpret` |
+| `top_taxa table is empty at finest rank` | All ASVs were filtered out at that agglomeration rank (low confidence, or low prevalence) | Fall back to the next coarser rank (genus → family → class → phylum); mention the fallback in Caveats |
+| `taxonomy.classification_rates: 0% at species rank` (eukaryote run) | IDTAXA confidence threshold dropped all species-level assignments | Note in Caveats; interpret at genus level instead. For 16S, species-level is rarely expected — this is normal. |
+| `blank_qc is non-empty but asv_counts.contaminants_flagged == 0` | Decontam ran but found no flaggable contaminants (either blanks are below the prevalence threshold, or the threshold is too permissive) | Flag in Caveats; suggest re-running with `--decontam_threshold 0.05` (more aggressive) and reviewing `decontam_summary.tsv` manually |
+| `community_typing.rds is a binary R object; cannot read directly` | The summariser left the raw R object instead of the TSV | Use `diversity/beta/sample_clusters.tsv` (the published companion); if missing, regenerate with `Rscript bin/community_typing.R` |
+| `IDTAXA confidence filter lost > 20% ASVs` (`pct_lost > 20`) | The confidence threshold (default 60) is too stringent for this reference DB | Note in Caveats; do not silently drop the section. Optionally re-run classification with `--idtaxa_confidence 50` (more permissive). |
+| `expected output files missing (e.g., pcoa_bray_curtis.pdf)` | Diversity or association stage did not run, or crashed mid-output | Check `pipeline_state.json.completed_stages`; if missing, invoke `run/edna-run` to complete those stages |
+| `Outputs paths in pipeline_state.json point to a different machine's home directory` | State file was generated on a different machine and rsynced | Do NOT trust the `outputs` paths literally; navigate relative to the current `results/{run_id}/` instead |
+| `Q&A answer requires a file that doesn't exist or is empty` | The scientist asked about an output that was never produced | Say so explicitly; do not invent findings. Offer to re-run the relevant pipeline stage. |
+
+## Verification
+
+- [ ] `results/{run_id}/{run_id}-report.md` exists with all 8 sections (Run Summary, QC, ASV/Taxonomy, Alpha Diversity, Beta Diversity, DAA, Correlation, Caveats).
+- [ ] Every reported number in the report can be traced to `run_summary.json` or a specific output file in `results/{run_id}/`.
+- [ ] Every anomaly flagged in SP2 is mentioned in the Caveats section.
+- [ ] The narrative summary is appended under `## Narrative Summary` heading.
+- [ ] If Q&A mode ran, the transcript (if saved per SP4) is at `results/{run_id}/qa_transcript.md`.
 
 ## Invariants
 
@@ -249,3 +360,4 @@ Stay in Q&A mode until the scientist signals they are done (e.g., "thanks", "don
 - Never claim a taxon was detected without reading the taxonomy file.
 - Do not assume which agglomerated rank files exist — always list the directory first.
 - The Q&A answers must be grounded in the actual files for this run. Do not speculate beyond what the data shows.
+- **Never** interpret before the SP1 stage-completeness gate has passed.

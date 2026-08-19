@@ -1,6 +1,8 @@
 # nf-edna
 
-> **v1.0.0.** Initial scaffold conforming to the BettaMt / AiX-BIO bioinformatics skill format. The Nextflow DSL2 pipeline (main.nf, modules/, bin/, params/, env/) was flattened from a nested `nf-edna/` directory to the skill root. Three Claude-Code-style phase skills were migrated from `.claude/skills/` into the canonical sub-skill layout (`preflight/edna-intake`, `run/edna-run`, `interpret/edna-interpret`). A root `SKILL.md` router + root `pixi.toml` (agent runtime) were added; per-stage pixi environments under `env/` are preserved unchanged (Nextflow-internal). Pipeline files, marker presets, and Pixi envs are all functional as in v0.x; only the agent-skill wrapping changed.
+> **v1.1.0.** Adds the canonical BettaMt / `bettamt-preflight` structure to all 3 sub-skills (§0 Inputs/Outputs contract, §0.5 Ask-User Stop Points with Evidence + Recommend + Options, §Audience, §When to Use / §Do NOT use this skill, §Troubleshooting — Signature library, GO / GO-WITH-WARNINGS / NO-GO verdict gate). Master `§0.5 SP0` now has an explicit `Auto-pick when` operating rule. The 3 sub-skill procedure bodies (the Steps) are unchanged from v1.0.0 — only the structured wrappers were added.
+>
+> **v1.0.0.** Initial scaffold conforming to the BettaMt / AiX-BIO bioinformatics skill format. The Nextflow DSL2 pipeline (main.nf, modules/, bin/, params/, env/) was flattened from a nested `nf-edna/` directory to the skill root. Three Claude-Code-style phase skills were migrated from `.claude/skills/` into the canonical sub-skill layout (`preflight/edna-intake`, `run/edna-run`, `interpret/edna-interpret`). A root `SKILL.md` router + root `pixi.toml` (agent runtime) were added; per-stage pixi environments under `env/` are preserved unchanged (Nextflow-internal).
 
 An agent-orchestrated Nextflow DSL2 pipeline for environmental DNA (eDNA) metabarcoding analysis, covering **QC → denoise → classify → diversity → association** for four marker genes: **16S** (Bacteria/Archaea), **18S-V9**, **COI**, and **12S** (Eukaryota). Marker-specific behavior (amplicon length range, kingdom filter, taxonomic ranks, optional geographic curation) is supplied via `-params-file` presets rather than separate pipeline copies.
 
@@ -155,6 +157,20 @@ python3 bin/summarise_run.py \
 | [`geocoding`](https://github.com/cheahhl814/geocoding) | Used internally by `bin/geocurate_fetch.R` if you enable geocuration for a run. |
 | [`bioinfo-skill-creator`](https://github.com/cheahhl814/bioinfo-skill-creator) | Meta-skill whose `battle-test` pattern the `test_smoke.py` here mirrors. |
 
+## v1.1.0 — what changed
+
+| Change | v1.0.0 | v1.1.0 |
+| --- | --- | --- |
+| **§0 Inputs/Outputs contract** | absent | Added to all 3 sub-skills + master |
+| **§0.5 Ask-User Stop Points** | master had prose SP0 only; sub-skills had none | 16 SPs total in canonical `Evidence + Recommend + Options` format: master SP0, preflight SP1–SP7, run SP1–SP4, interpret SP1–SP4 |
+| **§Audience** | absent | Added to all 3 sub-skills |
+| **§When to Use / §Do NOT use this skill** | absent | Added to all 3 sub-skills |
+| **GO / GO-WITH-WARNINGS / NO-GO verdict gate** | absent | Preflight computes 7 evidence items (E1–E7) → writes `verdict` field; `run/edna-run` SP1 enforces the gate (refuses on NO-GO, prompts on GO-WITH-WARNINGS, auto-proceeds on GO) |
+| **§Troubleshooting — Signature library** | absent | 27 entries total: preflight 8, run 10, interpret 9 |
+| **Auto-pick operating rule** | absent | Added to master §0.5 SP0 + every sub-skill §0.5 |
+| **Procedure bodies (Steps)** | v1.0.0 | Unchanged from v1.0.0 |
+| **Pipeline behavior** | v1.0.0 | Unchanged from v1.0.0 |
+
 ## v1.0.0 — what changed
 
 | Change | v0.x (pre-restructure) | v1.0.0 (BettaMt) |
@@ -187,13 +203,13 @@ python3 bin/summarise_run.py \
 ## Verification
 
 ```bash
-# 23 structural smoke tests (from the git source)
+# 38 structural smoke tests (from the git source)
 python3 test_smoke.py
-# Expected: "OK" + "23 passed, 0 failed, 0 skipped (of 23)"
+# Expected: "OK" + "38 passed, 0 failed, 0 skipped (of 38)"
 
 # From the deploy copy (~/.pi/agent/skills/nf-edna/) — git-hygiene checks are skipped automatically
 python3 test_smoke.py
-# Expected: "OK (skipped=3)" + "20 passed, 0 failed, 3 skipped (of 23)"
+# Expected: "OK (skipped=3)" + "35 passed, 0 failed, 3 skipped (of 38)"
 
 # Verify the git source ↔ deploy copy sync
 diff -rq /home/cheahhl814/claude_workspace/bioinformatics/AIx-BIO/skills/nf-edna/ \
@@ -201,9 +217,8 @@ diff -rq /home/cheahhl814/claude_workspace/bioinformatics/AIx-BIO/skills/nf-edna
 # Expected: only ".git" + ".gitignore" differences (deploy copy is intentionally not a git checkout)
 ```
 
-## v1.1.0 backlog (non-blocking)
+## v1.2.0 backlog (non-blocking)
 
-- **Signature library** — the 3 sub-skill bodies (migrated verbatim) don't yet have §Troubleshooting — Signature library sections. Add 3-5 entries per sub-skill.
 - **Docs corpus** — ingest offline Markdown snapshots of upstream tool docs (cutadapt, NGmerge, VSEARCH, IDTAXA, decontam, phyloseq, vegan, Nextflow DSL2) into `docs-corpus/<tool>/README.md` via the `docs-ingest` skill + the `bioinfo-skill-creator` meta-skill's build flow.
 
 ## Handoff

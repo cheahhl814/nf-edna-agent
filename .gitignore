@@ -31,3 +31,4 @@ work/
 # Internal-only — not for the public GitHub repo
 /docs/superpowers/
 /tests/
+__pycache__/

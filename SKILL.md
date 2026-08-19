@@ -1,7 +1,7 @@
 ---
 name: nf-edna
 description: End-to-end agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA (eDNA) metabarcoding analysis across four marker genes — 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota). Drives intake → QC → denoise → classify → diversity → association stages with marker-specific presets, then turns outputs into a structured report. Mirrors the BettaMt ask-user-stop-points pattern and the canonical `bacterial-genome-analysis` evidence chain. Use when the user asks to "run an eDNA metabarcoding analysis", "process 16S/18S/COI/12S amplicon reads", "interpret eDNA results", or "set up an eDNA pipeline run". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream GBIF Darwin Core publishing).
-version: 1.0.0
+version: 1.1.0
 updated: "2026-08-19"
 triggers:
   - "run eDNA metabarcoding"
@@ -25,7 +25,7 @@ requires:
 
 # Meta-Skill: nf-edna
 
-> **v1.0.0.** Initial scaffold conforming to the BettaMt / AiX-BIO bioinformatics skill format. Three Claude-Code-style phase skills (`edna-intake`, `edna-run`, `edna-interpret`) were migrated from `.claude/skills/` into the canonical sub-skill layout (`preflight/edna-intake`, `run/edna-run`, `interpret/edna-interpret`). The Nextflow DSL2 pipeline (`main.nf`, `modules/`, `bin/`, `params/`, `env/`) was flattened from the nested `nf-edna/` directory to the skill root. Per-stage pixi environments under `env/{qc,denoise,classification,database,diversity,geocuration,association}/pixi.toml` are kept intact (they are pipeline-internal, not the agent runtime).
+> **v1.1.0.** Adds the canonical BettaMt / `bettamt-preflight` structure to all 3 sub-skills (§0 Inputs/Outputs contract, §0.5 Ask-User Stop Points with Evidence + Recommend + Options format, §Audience, §When to Use / §Do NOT use this skill, §Troubleshooting — Signature library, GO / GO-WITH-WARNINGS / NO-GO verdict gate). Master `§0.5 SP0` now has an explicit `Auto-pick when` operating rule. The 3 sub-skill procedure bodies (the Steps) are unchanged from v1.0.0 — only the structured wrappers were added. Mirrors `bioinfo-skill-creator/preflight/skill-creator-preflight/SKILL.md`.
 >
 > **This SKILL.md is a router.** It does not duplicate logic from the sub-skills. Its job is to ask: *what stage is the user at, and which sub-skill should they invoke next?*
 
@@ -107,6 +107,19 @@ This orchestrator has **one** user-facing stop point at the routing layer (SP0).
 > I see `<evidence>`. I recommend `<recommendation>`. Which of `<A/B/C>` do you want?
 
 Do not ask "what do you want?" — present the evidence and a recommendation, then 2–4 concrete options.
+
+#### SP0 — Stage auto-detection ambiguous
+
+| Trigger | Evidence check | Action |
+| --- | --- | --- |
+| `pipeline_state.json` exists with ≥ 3 completed stages AND user did not specify "intake" / "run" / "interpret" | Multiple valid routings | Ask: "I see `<run_id>` with completed stages `<list>`. Pick: (A) start a **new run** via `preflight/edna-intake`, (B) **continue** the existing run via `run/edna-run`, (C) **interpret** completed results via `interpret/edna-interpret`, (D) something else (debug / fix / etc.) — tell me" |
+| `pipeline_state.json` is missing AND user mentions a `run_id` | State file lost or never written | Ask: "I see a `run_id` reference but no `results/{run_id}/pipeline_state.json`. Pick: (A) re-run `preflight/edna-intake` to recreate it (you'll re-supply all parameters), (B) point me at the correct location — the state file is somewhere else, (C) abort" |
+
+**Auto-pick when**: stage detection ladder resolves unambiguously (no `pipeline_state.json` → `intake`; state exists with `completed_stages ⊆ {qc, denoise, classify}` → `run`; state exists with `classify ∈ completed_stages` → `interpret`). No ask.
+
+### Operating rule
+
+> **Auto-pick when the evidence is unambiguous; ask when the agent genuinely cannot decide.** When asking, present the evidence first, then the recommendation, then 2–4 concrete options. Do not ask "what do you want?" — ask "I see X, recommend Y, which one of A/B/C?"
 
 ## Description
 

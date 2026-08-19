@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Smoke tests for nf-edna skill (v1.0.0 — BettaMt restructure).
+"""Smoke tests for nf-edna skill (v1.1.0 — BettaMt restructure + canonical compliance).
 
 Verifies the agent-skill wrapping is structurally sound:
 
 - All 4 SKILL.md files have valid YAML frontmatter (name, description, version,
   updated, triggers)
-- Master and sub-skill versions are coherent (v1.0.0)
+- Master and sub-skill versions are coherent (v1.1.0)
 - Sub-skill contract wiring (preflight → run → interpret via pipeline_state.json
   + run_summary.json)
 - pixi.toml parses cleanly with [project], [dependencies], [tasks]
@@ -115,12 +115,12 @@ class TestFrontmatterCoherence(unittest.TestCase):
 
     def test_master_and_subskil_versions_are_coherent(self):
         master = _frontmatter_version(_read("SKILL.md"))
-        self.assertEqual(master, "1.0.0",
-                          msg=f"master SKILL.md version is {master}, expected 1.0.0")
+        self.assertEqual(master, "1.1.0",
+                          msg=f"master SKILL.md version is {master}, expected 1.1.0")
         for f in SUB_SKILLS:
             v = _frontmatter_version(_read(f))
-            self.assertEqual(v, "1.0.0",
-                              msg=f"{f} version is {v}, expected 1.0.0")
+            self.assertEqual(v, "1.1.0",
+                              msg=f"{f} version is {v}, expected 1.1.0")
 
     def test_updated_dates_are_2026_08_19(self):
         for f in ["SKILL.md"] + SUB_SKILLS:
@@ -181,7 +181,7 @@ class TestPixiParse(unittest.TestCase):
         self.assertIn("dependencies", cfg, msg="pixi.toml missing [dependencies]")
         self.assertIn("tasks", cfg, msg="pixi.toml missing [tasks]")
         self.assertEqual(cfg["project"]["name"], "nf-edna")
-        self.assertEqual(cfg["project"]["version"], "1.0.0")
+        self.assertEqual(cfg["project"]["version"], "1.1.0")
 
     def test_pixi_has_nextflow_dep(self):
         with open(HERE / "pixi.toml", "rb") as fh:
@@ -297,6 +297,177 @@ class TestNoPersonalPaths(unittest.TestCase):
             text = _read(f)
             m = forbidden.search(text)
             self.assertIsNone(m, msg=f"{f} contains personal path: {m.group(0) if m else '?'}")
+
+
+# =============================================================================
+# BettaMt / bioinfo-skill-creator v1.1.0 compliance checks
+# =============================================================================
+# These mirror the canonical sections in bacterial-genome-analysis and
+# bioinfo-skill-creator. Every canonical sub-skill has:
+#   - §0 Inputs/Outputs contract
+#   - §0.5 Ask-User Stop Points (Evidence + Recommend + Options format)
+#   - §Audience section
+#   - §When to Use / §Do NOT use sections
+#   - "Auto-pick when" operating rule on every SP
+#   - §Troubleshooting — Signature library
+# The preflight sub-skill additionally has the GO/GO-WITH-WARNINGS/NO-GO
+# verdict gate pattern.
+# =============================================================================
+
+
+class TestBettaMtSectionPresence(unittest.TestCase):
+    """Each sub-skill must have the canonical BettaMt sections."""
+
+    def _sections_present(self, f):
+        text = _read(f)
+        return {
+            "audience": bool(re.search(r"^## Audience\b", text, re.MULTILINE)),
+            "when_to_use": bool(re.search(r"^## When to Use\b", text, re.MULTILINE)),
+            "do_not_use": bool(re.search(r"^Do NOT use this skill\b|^## Do NOT use\b", text, re.MULTILINE)),
+            "section_0_contract": bool(re.search(r"^## 0\. Inputs.*Outputs contract|^## 0\. Inputs|^### 0\. Inputs.*Outputs", text, re.MULTILINE | re.DOTALL)),
+            "section_0_5_stop_points": bool(re.search(r"^## 0\.5 Ask-User Stop Points|^### 0\.5 Ask-User Stop Points", text, re.MULTILINE)),
+            "auto_pick_rule": "Auto-pick when" in text,
+            "signature_library": bool(re.search(r"^## Troubleshooting\s*[—-]+\s*Signature library|^### Troubleshooting.*Signature library|^## Signature library", text, re.MULTILINE | re.IGNORECASE)),
+        }
+
+    def test_preflight_has_all_canonical_sections(self):
+        s = self._sections_present("preflight/edna-intake/SKILL.md")
+        missing = [k for k, v in s.items() if not v]
+        self.assertEqual(missing, [],
+                          msg=f"preflight/edna-intake missing canonical sections: {missing}")
+
+    def test_run_has_all_canonical_sections(self):
+        s = self._sections_present("run/edna-run/SKILL.md")
+        missing = [k for k, v in s.items() if not v]
+        self.assertEqual(missing, [],
+                          msg=f"run/edna-run missing canonical sections: {missing}")
+
+    def test_interpret_has_all_canonical_sections(self):
+        s = self._sections_present("interpret/edna-interpret/SKILL.md")
+        missing = [k for k, v in s.items() if not v]
+        self.assertEqual(missing, [],
+                          msg=f"interpret/edna-interpret missing canonical sections: {missing}")
+
+
+class TestAskUserStopPoints(unittest.TestCase):
+    """Each sub-skill must have at least one §0.5 SP# entry in canonical format.
+
+    Canonical SP table format (from bacterial-genome-analysis preflight):
+        ### SP{N} — <title>
+        | Trigger | Evidence check | Action |
+        | --- | --- | --- |
+        | <trigger> | <check> | <ask/auto-action> |
+    """
+
+    def _sp_table_count(self, f):
+        text = _read(f)
+        return len(re.findall(r"^### SP\d+\b", text, re.MULTILINE))
+
+    def test_preflight_has_at_least_one_stop_point(self):
+        n = self._sp_table_count("preflight/edna-intake/SKILL.md")
+        self.assertGreaterEqual(n, 3,
+                                 msg=f"preflight/edna-intake has {n} SP tables; canonical preflight has ≥ 3 (SP1–SP7 in bacterial-genome-analysis)")
+
+    def test_run_has_at_least_one_stop_point(self):
+        n = self._sp_table_count("run/edna-run/SKILL.md")
+        self.assertGreaterEqual(n, 1,
+                                 msg=f"run/edna-run has {n} SP tables; should have ≥ 1 for stage-choice / failure-handling ambiguity")
+
+    def test_interpret_has_at_least_one_stop_point(self):
+        n = self._sp_table_count("interpret/edna-interpret/SKILL.md")
+        self.assertGreaterEqual(n, 1,
+                                 msg=f"interpret/edna-interpret has {n} SP tables; should have ≥ 1 for anomaly-handling / scope decisions")
+
+    def test_every_sp_has_auto_pick_or_operating_rule(self):
+        """Every SP table must explicitly say when to auto-pick (no ask)."""
+        for f in SUB_SKILLS:
+            text = _read(f)
+            sp_count = len(re.findall(r"^### SP\d+\b", text, re.MULTILINE))
+            auto_pick_count = len(re.findall(r"\*\*Auto-pick when\*\*", text))
+            self.assertGreaterEqual(auto_pick_count, sp_count,
+                                     msg=f"{f} has {sp_count} SP tables but only {auto_pick_count} 'Auto-pick when' markers (each SP needs one)")
+
+
+class TestVerdictGate(unittest.TestCase):
+    """The preflight sub-skill must implement the GO/GO-WITH-WARNINGS/NO-GO verdict gate.
+
+    Pattern from bacterial-genome-analysis preflight:
+        - 3-tier verdict in frontmatter description
+        - Verdict gate section explaining the gate semantics
+        - The run sub-skill refuses to run without preflight.md ≥ GO-WITH-WARNINGS
+    """
+
+    def test_preflight_frontmatter_advertises_verdict(self):
+        text = _read("preflight/edna-intake/SKILL.md")
+        fm = _frontmatter(text)
+        desc = (fm.get("description") or "").lower()
+        # Either the verdict terms appear in the description, OR the verdict gate is documented in the body
+        self.assertTrue(
+            "go" in desc or "no-go" in desc or "verdict" in desc,
+            msg="preflight/edna-intake description does not mention GO/NO-GO/verdict gate"
+        )
+
+    def test_preflight_body_documents_verdict_tiers(self):
+        text = _read("preflight/edna-intake/SKILL.md")
+        for tier in ("GO", "GO-WITH-WARNINGS", "NO-GO"):
+            self.assertIn(tier, text,
+                           msg=f"preflight/edna-intake does not document verdict tier: {tier}")
+
+
+class TestSignatureLibrary(unittest.TestCase):
+    """Each sub-skill must have a §Troubleshooting — Signature library with ≥ 3 entries.
+
+    Pattern: a section with rows like
+        | `<signature>` | `<cause>` | `<fix>` |
+    """
+
+    def _signature_count(self, f):
+        text = _read(f)
+        # Look for the signature-library section and count table rows starting with `|`
+        m = re.search(r"^## Troubleshooting\s*[—-]+\s*Signature library(.*?)(?=^## |\Z)",
+                       text, re.MULTILINE | re.DOTALL | re.IGNORECASE)
+        if not m:
+            return 0
+        body = m.group(1)
+        # Count rows where first non-empty cell starts with a backtick (signature)
+        rows = re.findall(r"^\|\s*`", body, re.MULTILINE)
+        return len(rows)
+
+    def test_preflight_signature_library_has_3_entries(self):
+        n = self._signature_count("preflight/edna-intake/SKILL.md")
+        self.assertGreaterEqual(n, 3,
+                                 msg=f"preflight/edna-intake signature library has {n} entries; canonical minimum is 3")
+
+    def test_run_signature_library_has_3_entries(self):
+        n = self._signature_count("run/edna-run/SKILL.md")
+        self.assertGreaterEqual(n, 3,
+                                 msg=f"run/edna-run signature library has {n} entries; canonical minimum is 3")
+
+    def test_interpret_signature_library_has_3_entries(self):
+        n = self._signature_count("interpret/edna-interpret/SKILL.md")
+        self.assertGreaterEqual(n, 3,
+                                 msg=f"interpret/edna-interpret signature library has {n} entries; canonical minimum is 3")
+
+
+class TestInputsOutputsContract(unittest.TestCase):
+    """Each sub-skill must have a §0 Inputs/Outputs contract with explicit handoff paths."""
+
+    def _has_io_contract(self, f):
+        text = _read(f)
+        return bool(re.search(r"^## 0\. Inputs.*Outputs contract|^## 0\. Inputs|^### 0\. Inputs.*Outputs",
+                                text, re.MULTILINE))
+
+    def test_preflight_has_io_contract(self):
+        self.assertTrue(self._has_io_contract("preflight/edna-intake/SKILL.md"),
+                         msg="preflight/edna-intake missing §0 Inputs/Outputs contract")
+
+    def test_run_has_io_contract(self):
+        self.assertTrue(self._has_io_contract("run/edna-run/SKILL.md"),
+                         msg="run/edna-run missing §0 Inputs/Outputs contract")
+
+    def test_interpret_has_io_contract(self):
+        self.assertTrue(self._has_io_contract("interpret/edna-interpret/SKILL.md"),
+                         msg="interpret/edna-interpret missing §0 Inputs/Outputs contract")
 
 
 def main():
