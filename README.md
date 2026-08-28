@@ -61,10 +61,8 @@ nf-edna/
 │   └── edna-intake/SKILL.md          ← intake sub-skill (writes pipeline_state.json)
 ├── run/
 │   └── edna-run/SKILL.md             ← execution sub-skill (invokes nextflow run)
-├── interpret/
-│   └── edna-interpret/SKILL.md       ← interpretation sub-skill (writes report.md)
-├── test_smoke.py                     ← 23 structural smoke tests
-└── battle-test-report.md             ← PASS-WITH-WARNINGS verdict (v1.0.0)
+└── interpret/
+    └── edna-interpret/SKILL.md       ← interpretation sub-skill (writes report.md)
 ```
 
 ## Prerequisites
@@ -159,7 +157,7 @@ python3 bin/summarise_run.py \
 | [`nextflow-pipelines`](https://github.com/cheahhl814/nextflow-pipelines) | Reference for the DSL2 idioms used in `modules/` and `main.nf`. |
 | [`edna-gbif-publish`](https://github.com/cheahhl814/edna-gbif-publish) | After `interpret/edna-interpret`, publish occurrence data to GBIF. |
 | [`geocoding`](https://github.com/cheahhl814/geocoding) | Used internally by `bin/geocurate_fetch.R` if you enable geocuration for a run. |
-| [`bioinfo-skill-creator`](https://github.com/cheahhl814/bioinfo-skill-creator) | Meta-skill whose `battle-test` pattern the `test_smoke.py` here mirrors. |
+| [`bioinfo-skill-creator`](https://github.com/cheahhl814/bioinfo-skill-creator) | Meta-skill whose `battle-test` pattern the structural validation in this repo follows. |
 
 ## v1.1.0 — what changed
 
@@ -184,7 +182,7 @@ python3 bin/summarise_run.py \
 | **Frontmatter** | Bare `name:` / `description:` (Claude Code shape) | Full `name:` / `description:` / `version: 1.0.0` / `updated: "2026-08-19"` / `triggers:` (AiX-BIO shape) on all 4 SKILL.md files |
 | **Pixi environment** | Single env at `nf-edna/env/pixi.toml` only | Root `pixi.toml` (agent runtime: nextflow, python, julia, pandas, pyyaml, jsonschema) + per-stage envs under `env/{stage}/pixi.toml` preserved |
 | **Discovery** | Not listed in `skills/INDEX.md` | Row #18b in Genomics & Bioinformatics table + discovery-heuristic entry |
-| **Battle tests** | None | `test_smoke.py` (23 structural smoke tests) + `battle-test-report.md` (PASS-WITH-WARNINGS) |
+| **Battle tests** | None | Battle-test sub-skill `battle-test/nf-edna-battle-test/SKILL.md` (structural validation; not shipped as standalone scripts) |
 | **Git hygiene** | `.gitignore` covered `nf-edna/assets/**` (stale, pre-flatten) | Updated to `assets/**` + new coverage for `results/`, `work/`, `.nextflow.log*`, `*.fq.gz` |
 
 ## What changed in the agent-skill wrapping (and what didn't)
@@ -206,15 +204,9 @@ python3 bin/summarise_run.py \
 
 ## Verification
 
-```bash
-# 38 structural smoke tests (from the git source)
-python3 test_smoke.py
-# Expected: "OK" + "38 passed, 0 failed, 0 skipped (of 38)"
+Run the battle-test sub-skill (see `battle-test/nf-edna-battle-test/SKILL.md` for the procedure):
 
-# From the deploy copy (~/.pi/agent/skills/nf-edna/) — git-hygiene checks are skipped automatically
-python3 test_smoke.py
-# Expected: "OK (skipped=3)" + "35 passed, 0 failed, 3 skipped (of 38)"
-
+```
 # Verify the git source ↔ deploy copy sync
 diff -rq /home/cheahhl814/claude_workspace/bioinformatics/AIx-BIO/skills/nf-edna/ \
          /home/cheahhl814/.pi/agent/skills/nf-edna/
