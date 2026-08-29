@@ -74,8 +74,7 @@ invoke_skill run/edna-visualize-run
 eDNA-visualize/
 ├── SKILL.md                                   # Router
 ├── README.md                                  # Human guide
-├── pixi.toml                                  # Agent runtime deps
-├── test_smoke.py                              # 20 structural tests
+└── pixi.toml                                  # Agent runtime deps
 ├── bin/
 │   ├── normalize_abundance.R                  # Stage 1: counts → relabundance
 │   ├── plot_heatmaps.R                        # Stage 2: CLR heatmaps

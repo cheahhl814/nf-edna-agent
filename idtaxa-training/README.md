@@ -69,8 +69,7 @@ invoke_skill run/idtaxa-training-run
 idtaxa-training/
 ├── SKILL.md                                   # Router
 ├── README.md                                  # Human guide
-├── pixi.toml                                  # Agent runtime deps
-├── test_smoke.py                              # 19 structural tests
+└── pixi.toml                                  # Agent runtime deps
 ├── bin/
 │   ├── prepare_ncbi_fasta_for_idtaxa.R        # Stage 1
 │   ├── train_idtaxa_model.R                   # Stage 2

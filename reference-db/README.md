@@ -90,8 +90,7 @@ pip install gdown
 reference-db/
 ├── SKILL.md                                    # Router + curated catalog
 ├── README.md                                   # Human guide
-├── pixi.toml                                   # Agent runtime deps
-├── test_smoke.py                               # 25+ structural tests
+└── pixi.toml                                   # Agent runtime deps
 ├── bin/                                        # (validation scripts, if any)
 ├── preflight/
 │   └── reference-db-preflight/SKILL.md         # 6 stop points + verdict gate
