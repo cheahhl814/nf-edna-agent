@@ -220,3 +220,23 @@ After `interpret/edna-interpret` writes `<run_id>-report.md` and `narrative.md`,
 - **Manuscript writing** → use `literature-pipeline` to find citations, then draft with the `narrative.md` as a starting point.
 - **GBIF publishing** → invoke `edna-gbif-publish` with the `<run_id>-report.md` and Darwin Core occurrence table.
 - **Additional markers** → start a new run via `preflight/edna-intake` with a different `marker`.
+
+## Update Check
+
+This skill ships a self-update check that compares the deployed `SKILL.md` (and the rest of the skill) against the upstream `github.com/cheahhl814/nf-edna` repo via `git fetch` + SHA diff — no GitHub API call, no extra dependencies.
+
+```bash
+# From this skill's directory:
+python3 bin/skill-update-check.py
+# Or, for skills with pixi.toml:
+pixi run update-check
+# Verdict legend (exit code in parens):
+#   UP-TO-DATE       (0)  local HEAD matches origin/HEAD
+#   LOCAL-AHEAD      (0)  unpushed local commits; no action needed
+#   BEHIND-BY-N      (1)  upstream is N commits ahead → rsync from @skills/nf-edna/
+#   OFFLINE          (2)  git fetch failed (no network / no credentials); informational
+#   NO-ORIGIN        (2)  no `origin` remote configured; informational
+```
+
+When `BEHIND-BY-N`, the script prints the canonical fix (rsync from `@skills/nf-edna/` to `~/.pi/agent/skills/nf-edna/` per AGENTS.md §4a, then `diff -rq` to verify). When `OFFLINE`, the script still prints `local_sha` + deployed version so the user can compare by hand. The full implementation is in `bin/skill-update-check.py` (synced from the [bioinfo-skill-creator](https://github.com/cheahhl814/bioinfo-skill-creator) meta-skill v1.1.0+).
+
