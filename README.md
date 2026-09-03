@@ -208,8 +208,8 @@ Run the battle-test sub-skill (see `battle-test/nf-edna-battle-test/SKILL.md` fo
 
 ```
 # Verify the git source ↔ deploy copy sync
-diff -rq /home/cheahhl814/claude_workspace/bioinformatics/AIx-BIO/skills/nf-edna/ \
-         /home/cheahhl814/.pi/agent/skills/nf-edna/
+diff -rq <nf-edna-source>/ \
+         ~/.pi/agent/skills/nf-edna/
 # Expected: only ".git" + ".gitignore" differences (deploy copy is intentionally not a git checkout)
 ```
 

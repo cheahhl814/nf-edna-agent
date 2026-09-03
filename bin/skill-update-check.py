@@ -149,9 +149,11 @@ def main() -> int:
         print("fix:")
         print("  Option A (canonical, no git auth needed):")
         print("    1. rsync -a --exclude='.git' \\")
-        print("         ~/claude_workspace/bioinformatics/AIx-BIO/skills/nf-edna/ \\")
-        print("         ~/.pi/agent/skills/nf-edna/")
+        print("         <skill_source>/ \\")
+        print("         ~/.pi/agent/skills/<skill_target>/")
         print("    2. diff -rq <src> <dst> --exclude='.git'   # verify zero drift")
+        print("         (skill_source = this skill's source checkout,")
+        print("          skill_target = the matching path under ~/.pi/agent/skills/)")
         print("  Option B (if you have a git checkout of this skill):")
         print(f"    git pull --ff-only origin $(basename {origin_ref.replace('refs/remotes/origin/', '')})")
         return 1

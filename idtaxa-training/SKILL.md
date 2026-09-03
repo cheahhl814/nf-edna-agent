@@ -65,7 +65,7 @@ By convention the agent writes handoff files to a run directory for the **traini
 
 ```bash
 # Example: training a 12S MiFish-U classifier on 50k NCBI accessions
-RUN_DIR=/home/cheahhl814/projects/my-12s-classifier/run
+RUN_DIR=<your-run-dir>/run
 ```
 
 ### 0.2 Detect the user's phase

@@ -72,7 +72,7 @@ By convention the agent writes handoff files to a run directory for the **refere
 
 ```bash
 # Example: fetching SILVA for a 16S run
-RUN_DIR=/home/cheahhl814/projects/my-16s-run/reference_db
+RUN_DIR=<your-run-dir>/reference_db
 ```
 
 ### 0.2 Detect the user's phase

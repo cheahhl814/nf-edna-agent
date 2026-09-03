@@ -72,7 +72,7 @@ By convention the agent writes handoff files to a run directory for the **visual
 
 ```bash
 # Example: visualizing an nf-edna output run
-RUN_DIR=/home/cheahhl814/projects/my-edna-figures/run
+RUN_DIR=<your-run-dir>/run
 ```
 
 ### 0.2 Detect the user's phase
