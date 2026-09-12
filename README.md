@@ -100,7 +100,7 @@ nextflow run runners/nextflow-runner/main.nf -entry CLASSIFY_ONLY -params-file .
 
 ## Running the agent (canonical flow)
 
-The agent-skill wrapping does **not** change what runs — only how it's invoked. With the skill deployed to `~/.pi/agent/skills/nf-edna/`, an AI agent will auto-load the orchestrator (`SKILL.md`) when the user asks anything matching its `triggers:` frontmatter (e.g. "run an eDNA metabarcoding analysis", "process 16S amplicon reads").
+The agent-skill wrapping does **not** change what runs — only how it's invoked. With the skill deployed to your agent's skills directory, an AI agent will auto-load the orchestrator (`SKILL.md`) when the user asks anything matching its `triggers:` frontmatter (e.g. "run an eDNA metabarcoding analysis", "process 16S amplicon reads").
 
 The orchestrator detects the user's stage from filesystem evidence and routes to the right sub-skill:
 
@@ -209,7 +209,7 @@ Run the battle-test sub-skill (see `battle-test/nf-edna-battle-test/SKILL.md` fo
 ```
 # Verify the git source ↔ deploy copy sync
 diff -rq <nf-edna-source>/ \
-         ~/.pi/agent/skills/nf-edna/
+         <your-agent-skills-dir>/nf-edna/
 # Expected: only ".git" + ".gitignore" differences (deploy copy is intentionally not a git checkout)
 ```
 
