@@ -57,7 +57,7 @@ Use this meta-skill when you need to:
 **Do NOT use this skill** if:
 
 - You have **raw reads that have not been QC-trimmed yet** — use `read-qc-trimming` first; this skill expects either raw reads *or* a `pipeline_state.json` from a prior intake.
-- You want to author a Nextflow pipeline from scratch — use `nextflow-pipelines` instead.
+- You want to author a Nextflow pipeline from scratch — use `nf-skill` instead.
 - You are analysing shotgun metagenomics (different paradigm; use `gene-quantification` and downstream skills).
 - Your marker is not one of the four supported — the marker-specific behavior is hardcoded in `params/{16s,18s-v9,coi,12s}.json`.
 
@@ -180,8 +180,8 @@ results/16s-20260819-siteA/
 | Skill | When to chain |
 | --- | --- |
 | `read-qc-trimming` | Run **before** `preflight/edna-intake` if your reads are raw (untrimmed). nf-edna's `qc` stage does primer trimming; if your reads also need adapter trimming + quality filtering, do that first. |
-| `pixi-env-mgmt` | Use to add/modify the per-stage pixi envs under `env/`. |
-| `nextflow-pipelines` | Reference for the DSL2 idioms used in `modules/` and `main.nf`. |
+| `pixi-skill` | Use to add/modify the per-stage pixi envs under `env/`. |
+| `nf-skill` | Reference for the DSL2 idioms used in `modules/` and `main.nf`. |
 | `edna-gbif-publish` | After `interpret/edna-interpret`, publish occurrence data to GBIF. |
 | `geocoding` | Used internally by `bin/geocurate_fetch.R` if you enable geocuration for a run. |
 | **`idtaxa-training`** (this repo: `idtaxa-training/`) | Run **before** the first-ever nf-edna run if you don't yet have an IDTAXA `.rds` model. Wraps `prepare_ncbi_fasta_for_idtaxa.R` + `train_idtaxa_model.R` + `extract_scientific_names.jl` + (patched) `bin/idtaxa_rds.R`. Also useful for loading existing DECIPHER trainingFiles (e.g., SILVA `SILVA_SSU_r138.2.rdata`) without modification. |
