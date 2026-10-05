@@ -6,8 +6,8 @@ description: >-
   (2) CLR-transformed ComplexHeatmap heatmaps at Phylum/Family/Genus levels via `plot_heatmaps.R`,
   (3) high-contrast stacked-bar charts via `plot_stacked_bar.R`.
   Writes `run_summary.json` for downstream consumers.
-version: 1.1.4
-updated: "2026-08-19"
+version: 1.1.5
+updated: "2026-10-05"
 triggers:
   - "run eDNA-visualize"
   - "execute eDNA figure generation"

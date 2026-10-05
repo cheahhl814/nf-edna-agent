@@ -1,0 +1,88 @@
+{
+  "skill_name": "nf-edna",
+  "skill_version": "1.1.4",
+  "skill_updated": "2026-08-19",
+  "skill_short_description": "End-to-end agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA (eDNA) metabarcoding analysis across four marker genes \u2014 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota). Drives intake \u2192 QC \u2192 denoise \u2192 classify \u2192 diversity \u2192 association stages with marker-specific presets, then turns outputs into a structured report. Mirrors the BettaMt ask-user-stop-points pattern and the canonical `bacterial-genome-analysis` evidence chain. Use when the user asks to \"run an eDNA metabarcoding analysis\", \"process 16S/18S/COI/12S amplicon reads\", \"interpret eDNA results\", or \"set up an eDNA pipeline run\". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream GBIF Darwin Core publishing).",
+  "skill_description": "End-to-end agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA (eDNA) metabarcoding analysis across four marker genes \u2014 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota). Drives intake \u2192 QC \u2192 denoise \u2192 classify \u2192 diversity \u2192 association stages with marker-specific presets, then turns outputs into a structured report. Mirrors the BettaMt ask-user-stop-points pattern and the canonical `bacterial-genome-analysis` evidence chain. Use when the user asks to \"run an eDNA metabarcoding analysis\", \"process 16S/18S/COI/12S amplicon reads\", \"interpret eDNA results\", or \"set up an eDNA pipeline run\". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream GBIF Darwin Core publishing).",
+  "skill_triggers": [
+    "run eDNA metabarcoding",
+    "process 16S amplicon reads",
+    "process 18S V9 reads",
+    "process COI reads",
+    "process 12S reads",
+    "eDNA ASV inference",
+    "taxonomic classification 16S",
+    "eDNA alpha beta diversity",
+    "eDNA differential abundance",
+    "IDTAXA classification",
+    "VSEARCH UNOISE3",
+    "metabarcoding pipeline",
+    "nf-edna"
+  ],
+  "github_repo": "github.com/cheahhl814/nf-edna",
+  "sub_skills": [
+    {
+      "name": "interpret",
+      "purpose": "**v1.1.0.** Adds the canonical BettaMt structure (\u00a70 Inputs/Outputs contract, \u00a70.5 Ask-User Stop Points with Evidence +",
+      "artifact": "interpret-artifact.md"
+    },
+    {
+      "name": "preflight",
+      "purpose": "**v1.1.0.** Adds the canonical BettaMt / `bettamt-preflight` structure (\u00a70 Inputs/Outputs contract, \u00a70.5 Ask-User Stop P",
+      "artifact": "preflight.md"
+    },
+    {
+      "name": "run",
+      "purpose": "**v1.1.0.** Adds the canonical BettaMt structure (\u00a70 Inputs/Outputs contract, \u00a70.5 Ask-User Stop Points with Evidence +",
+      "artifact": "run-summary.md"
+    },
+    {
+      "name": "runners",
+      "purpose": "This directory contains the **primary Nextflow DSL2 pipeline** of nf-edna. It is the engine that the bash recipes in `ru",
+      "artifact": "runners-artifact.md"
+    }
+  ],
+  "tool_inventory": [
+    {
+      "name": "python",
+      "version": ">=3.10",
+      "role": "Pinned conda dep"
+    },
+    {
+      "name": "julia",
+      "version": ">=1.10",
+      "role": "Pinned conda dep"
+    },
+    {
+      "name": "nextflow",
+      "version": ">=23.10.0",
+      "role": "Pinned conda dep"
+    },
+    {
+      "name": "pandas",
+      "version": ">=2.0",
+      "role": "Pinned conda dep"
+    },
+    {
+      "name": "pyyaml",
+      "version": ">=6.0",
+      "role": "Pinned conda dep"
+    },
+    {
+      "name": "jsonschema",
+      "version": ">=4.0",
+      "role": "Pinned conda dep"
+    }
+  ],
+  "skill_title": "nf-edna",
+  "github_org": "cheahhl814",
+  "pixi_channels": [
+    "conda-forge",
+    "bioconda"
+  ],
+  "license": "MIT",
+  "target_tiers": [
+    "large"
+  ],
+  "with_nextflow_runner": true
+}

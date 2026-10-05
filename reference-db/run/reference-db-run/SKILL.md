@@ -1,8 +1,8 @@
 ---
 name: reference-db-run
 description: Executes the reference-db download + DECIPHER-training workflow after preflight has passed. Downloads the chosen reference (SILVA / PR2 / MIDORI2 / MitoFish / BOLD / custom) to the canonical assets directory, validates the file loads correctly (via the patched idtaxa_rds.R for DECIPHER pre-trained files; via FASTA parsing for raw references), and chains to idtaxa-training when the reference needs DECIPHER training. Writes run_summary.json for downstream consumers.
-version: 1.1.4
-updated: "2026-08-19"
+version: 1.1.5
+updated: "2026-10-05"
 triggers:
   - "run reference-db"
   - "execute reference DB download"
@@ -111,6 +111,31 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 > - (D) Abort
 
 **Auto-pick when**: file size within 5% of expected — auto-pick (A). Otherwise — surface the mismatch.
+
+---
+
+### SP2.5 — Shared-store execution via biodb-fetch (preferred when deployed)
+
+> **Evidence**: `test -d ~/.agents/skills/biodb-fetch/scripts` (biodb-fetch v1.0.0 deployed and reachable).
+
+When biodb-fetch is deployed, **prefer executing the SP2 download through it** instead of raw `curl`/`gdown`:
+
+```bash
+# Any curated catalog URL — biodb-fetch's marker-references domain executes with:
+#   md5/size verification + content-addressed shared store + manifest.tsv contract v2
+pixi run python3 ~/.agents/skills/biodb-fetch/scripts/marker_refs.py url \
+    --url "<catalog URL>" --source silva-nr99 --outdir <RUN_DIR>
+# Google Drive (DECIPHER pre-trained) — biodb-fetch owns gdown + quota handling:
+#   pixi run python3 ~/.agents/skills/biodb-fetch/scripts/marker_refs.py decipher --drive-id <id>
+# BOLD / UNITE / Zenodo records have dedicated keys (unite | bold | mitohelper | midori2) —
+#   license gating (CC-BY-NC) and --i-accept-license carry over — see biodb-fetch runbook
+#   run/markers-reference/SKILL.md.
+```
+
+- **Cross-skill payoff**: the download writes into biodb-fetch's shared `store/` with a deterministic path + `.sha256` sidecar. A second nf-edna run (or any other consumer skill) requesting the same reference gets a `cache=hit` manifest row — zero re-download.
+- **Division of ownership (unchanged)**: THIS sub-skill still owns catalog curation (which URL/version/license), the SP1 confirmation gate (show the command, wait for approval), SP3 load validation, and `idtaxa-training` chaining. biodb-fetch only owns fetch execution (mirrors, retries, md5, store).
+- **Evidence for this SP**: biodb-fetch manifest row (`cache=hit` or `miss`) + the file path from the manifest; then proceed to SP3 (validation) unchanged.
+- **Degradation**: biodb-fetch not deployed / its preflight NO-GO → fall through to SP2's documented `curl`/`gdown` commands exactly as written above; note the deviation in `run_summary.json`.
 
 ---
 
@@ -225,6 +250,8 @@ And write `run_summary.json`:
 ```
 
 ## 2. Downloading from Google Drive (DECIPHER pre-trained files)
+
+> **biodb-fetch note (v1.0.0)**: when biodb-fetch is deployed, Google Drive downloads should run through its `marker-references` domain (`scripts/marker_refs.py decipher --drive-id <id>`), which owns the gdown invocation, sidecar verification, and shared-store placement — see SP2.5 above. The raw commands below remain the fallback.
 
 SILVA SSU r138.2 (and other DECIPHER trainingFiles) are hosted on Google Drive. Direct `curl` may fail with HTML "download quota exceeded" or "virus scan" pages. Recommended approaches:
 

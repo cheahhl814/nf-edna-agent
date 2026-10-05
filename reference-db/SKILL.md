@@ -1,8 +1,8 @@
 ---
 name: reference-db
 description: Curated catalog of reference-database direct-download URLs for the four nf-edna markers (16S Bacteria/Archaea, 18S-V9 Eukaryota, COI Metazoa, 12S fish eDNA), with workflows for retrieving them and (when needed) training DECIPHER IDTAXA classifiers. Covers SILVA (16S/18S, DECIPHER pre-trained via Google Drive), PR2 (18S, DECIPHER pre-trained via GitHub releases), MIDORI2 (COI/12S mitochondrial, requires DECIPHER training), MitoFish (12S fish, raw FASTA + DECIPHER training), and BOLD (COI, requires DECIPHER training). Includes NCBI eutils access for custom FASTA construction (e.g., 12S Actinopterygii) via the existing `idtaxa-training` sub-skill. Mirrors the BettaMt ask-user-stop-points pattern. Use when the user asks to "download SILVA reference", "get PR2 database", "find MitoFish FASTA", "COI reference for metabarcoding", "where do I download 16S reference", "where do I download 18S reference", "where do I download 12S reference", "where do I download COI reference", "I need a reference for nf-edna", "what reference should I use for marker X", or "train a reference for marker X".
-version: 1.1.4
-updated: "2026-08-19"
+version: 1.1.5
+updated: "2026-10-05"
 triggers:
   - "download SILVA reference"
   - "get SILVA database"
@@ -323,3 +323,12 @@ Phases:
 - **Always** verify the downloaded file's size + sha256 (when available) before proceeding to validation.
 - **Always** surface the license for the chosen reference; require explicit acceptance for CC-BY-NC or BOLD-restricted files.
 - **Always** check whether a pre-trained DECIPHER file exists for the chosen marker BEFORE recommending DECIPHER training.
+## Dependencies → biodb-fetch (execution layer)
+
+Consumes [biodb-fetch](https://github.com/cheahhl814/biodb-fetch) v1.0.0 (deployed at `~/.agents/skills/biodb-fetch/`) as the optional preferred download executor:
+
+- **Division of ownership (this sub-skill keeps)**: catalog curation (which URL / version / license — the entries above), the preflight confirmation gate (exact command shown to the user before any download), SP3 load validation, and `idtaxa-training` chaining when a pre-trained model doesn't exist.
+- **biodb-fetch `marker-references` domain takes over**: execution — ENA/Drive/Zenodo/GitHub mirror routing, retries, md5 verification (+ `.sha256` sidecars), and placement into biodb-fetch's **shared content-addressed `store/`** so a repeated reference (same URL/version) is never re-downloaded — any other consumer skill gets the same bytes via a `cache=hit` manifest row.
+- **Entry points** (full runbook: biodb-fetch `run/markers-reference/SKILL.md`): `scripts/marker_refs.py` keys `unite | bold | mitohelper | midori2 | silva | pr2 | decipher | url`. License gates carry over — CC-BY-NC (MIDORI2) and BOLD-terms require `--i-accept-license`; the gdown-for-Google-Drive trap (curl returns quota-exceeded HTML) is handled inside biodb-fetch.
+- **Evidence wiring**: in `run/reference-db-run`, substitute SP2's raw download with SP2.5 when biodb-fetch is deployed; SP3 validation runs unchanged on the returned manifest `path`.
+- **Degradation**: biodb-fetch absent / NO-GO → the SP2-documented `curl`/`wget`/`gdown` commands remain correct and used as-is; note the deviation in `run_summary.json`.

@@ -13,8 +13,8 @@ description: >-
   plot, or I have agglomerated counts, make figures. Pairs with `nf-edna`
   (upstream: produces the count tables) and `idtaxa-training` (sibling: produces
   the model used to generate classifications).
-version: 1.1.4
-updated: "2026-08-19"
+version: 1.1.5
+updated: "2026-10-05"
 triggers:
   - "make eDNA figures"
   - "plot heatmap of microbial communities"

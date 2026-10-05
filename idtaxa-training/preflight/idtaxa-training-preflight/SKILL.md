@@ -1,8 +1,8 @@
 ---
 name: idtaxa-training-preflight
 description: Preflight validation for the idtaxa-training sub-skill. Verifies (1) input FASTA exists and parses, (2) NCBI eutils connectivity (for rentrez-based stage 1), (3) DECIPHER availability in pixi env, (4) output paths are writable, (5) FASTA headers contain parsable accessions, (6) marker gene confirmed, (7) memory + batch size estimates. Produces a GO / GO-WITH-WARNINGS / NO-GO verdict gate before any stage script is invoked.
-version: 1.1.4
-updated: "2026-08-19"
+version: 1.1.5
+updated: "2026-10-05"
 triggers:
   - "idtaxa preflight"
   - "validate IDTAXA training inputs"

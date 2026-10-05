@@ -1,8 +1,8 @@
 ---
 name: nf-edna-nextflow-runner
 description: Nextflow DSL2 pipeline (v1.1.3) for nf-edna eDNA metabarcoding analysis. Wraps the 5 stages (QC → DENOISE → CLASSIFY → DIVERSITY → ASSOCIATION) across 4 markers (16S / 18S-V9 / COI / 12S). This is the **primary pipeline** of nf-edna (not an opt-in wrapper — bash recipes in `run/edna-run` invoke `nextflow run runners/nextflow-runner/main.nf` under the hood). Provides 5 modules (qc.nf / denoise.nf / classify.nf / diversity.nf / association.nf) + 4 marker-specific params presets (params/{16s,18s-v9,coi,12s}.json) + 7 per-stage pixi envs (env/{qc,denoise,classification,database,diversity,geocuration,association}/pixi.toml) + 14 R/Julia scripts (bin/) wired into the modules. Mirrors the `bacterial-genome-analysis` `runners/nextflow-runner/` convention. Use when the user says "run the nf-edna pipeline", "nextflow run nf-edna", "execute the eDNA metabarcoding pipeline", or invokes any stage via Nextflow.
-version: 1.1.4
-updated: "2026-08-19"
+version: 1.1.5
+updated: "2026-10-05"
 triggers:
   - "run nf-edna pipeline"
   - "nextflow run nf-edna"
