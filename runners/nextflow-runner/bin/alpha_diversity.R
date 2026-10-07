@@ -4,7 +4,16 @@
 # --- Load Required Libraries ---
 library(argparse)
 library(data.table)
-library(mia)
+# mia loaded opportunistically: not required by this script's own calls, but
+# conda envs can pair bioconductor-mia with an incompatible rbiom major
+# ("object 'unifrac' is not exported by 'namespace:rbiom'"), which aborts the
+# script on load. scater functions used below come from scater, not mia.
+if (requireNamespace("mia", quietly = TRUE)) {
+    library(mia)
+} else {
+    warning("mia not loadable — proceeding (this script does not call mia functions).")
+}
+library(TreeSummarizedExperiment)
 library(S4Vectors)
 library(ape)
 library(phytools) # For midpoint.root (though no longer used here, it was from user's tree script)

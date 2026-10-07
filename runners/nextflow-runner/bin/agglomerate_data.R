@@ -4,7 +4,17 @@
 # --- Load Required Libraries ---
 library(argparse)
 library(data.table)
-library(mia)
+# mia is loaded opportunistically: this script never calls mia functions itself
+# (agglomeration is done by manual row grouping below), but conda-solved
+# envs may have mia incompatible with the rbiom major they were paired with
+# (e.g. mia 1.18.0 + rbiom 3.x -> "object 'unifrac' is not exported by
+# 'namespace:rbiom'"), which would abort the entire script on load.
+if (requireNamespace("mia", quietly = TRUE)) {
+    library(mia)
+} else {
+    warning("mia not loadable — proceeding with manual agglomeration (no mia functions used by this script).")
+}
+library(TreeSummarizedExperiment)
 library(S4Vectors) # for DataFrame
 
 

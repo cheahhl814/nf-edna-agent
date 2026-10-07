@@ -490,13 +490,14 @@ def main():
     print(f"Written: {out_path}")
 
     # Print a brief console summary
-    asv = summary["asv_counts"]
-    tax = summary["taxonomy"]
-    da  = summary["differential_abundance"]
+    asv = summary.get("asv_counts") or {}
+    tax = summary.get("taxonomy") or {}
+    da  = summary.get("differential_abundance") or {}
     print(f"  ASVs: {asv.get('raw','?')} raw → {asv.get('filtered','?')} filtered "
           f"({asv.get('contaminants_flagged','?')} contaminants removed)")
     print(f"  Taxonomy NA rate: {tax.get('classification_rates',{}).get('superkingdom','?')}% classified at kingdom")
-    print(f"  Read loss to kingdom filter: {tax.get('read_loss_to_kingdom_filter',{}).get('lost_pct','?')}%")
+    loss = tax.get('read_loss_to_kingdom_filter') if isinstance(tax.get('read_loss_to_kingdom_filter'), dict) else {}
+    print(f"  Read loss to kingdom filter: {loss.get('lost_pct','?')}%")
     print(f"  DA significant (q<0.05): {da.get('significant_q0.05','?')} / {da.get('total_tests','?')} tests")
 
 

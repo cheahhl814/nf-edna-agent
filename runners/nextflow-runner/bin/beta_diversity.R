@@ -4,7 +4,13 @@
 # --- Load Required Libraries ---
 library(argparse)
 library(data.table)
-library(mia)
+# mia loaded opportunistically (never called; see alpha_diversity.R note)
+if (requireNamespace("mia", quietly = TRUE)) {
+    library(mia)
+} else {
+    warning("mia not loadable — proceeding (this script does not call mia functions).")
+}
+library(TreeSummarizedExperiment)
 library(S4Vectors)
 library(ape)
 library(ggplot2)

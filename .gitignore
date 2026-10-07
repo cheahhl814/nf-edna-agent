@@ -37,3 +37,14 @@ __pycache__/
 /tests/
 __pycache__/
 **/pixi.lock
+
+# Meta-skill run artifacts — per-run regenerable, never commit (skill-battle-test check #6)
+skill-built.md
+battle-test-report.md
+battle-test_evidence.txt
+preflight.md
+preflight_evidence.txt
+tool_search_results.txt
+tool-inventory.json
+exec-canary-report.md
+exec-canary_evidence.txt

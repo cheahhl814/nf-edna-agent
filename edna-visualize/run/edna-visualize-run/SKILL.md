@@ -37,21 +37,21 @@ Use this sub-skill **after** `preflight/edna-visualize-preflight` returns a `GO`
 
 ### Inputs (consumed from preflight evidence)
 
-| Variable | Source | Description |
-| --- | --- | --- |
-| `input_asv_counts` | preflight SP1 | ASV-level count table |
-| `input_phylum_counts` | preflight SP1 | Phylum-level count table |
-| `input_family_counts` | preflight SP1 | Family-level count table |
-| `input_genus_counts` | preflight SP1 | Genus-level count table |
-| `input_phylum_taxonomy` | preflight SP1 | Phylum-level taxonomy table |
-| `input_family_taxonomy` | preflight SP1 | Family-level taxonomy table |
-| `input_genus_taxonomy` | preflight SP1 | Genus-level taxonomy table |
-| `metadata_file` | preflight SP1 | Sample metadata |
-| `output_dir` | preflight SP4 | Output directory |
-| `group_by` | preflight SP5 | Optional metadata column for grouping |
-| `top_n` | default 50 | Top-N taxa for heatmaps |
-| `top_n_taxa` | default 20 | Top-N taxa for stacked bars |
-| `preflight_verdict` | preflight verdict file | Must be `GO` or `GO-WITH-WARNINGS` |
+| Variable                | Source                 | Description                           |
+| ----------------------- | ---------------------- | ------------------------------------- |
+| `input_asv_counts`      | preflight SP1          | ASV-level count table                 |
+| `input_phylum_counts`   | preflight SP1          | Phylum-level count table              |
+| `input_family_counts`   | preflight SP1          | Family-level count table              |
+| `input_genus_counts`    | preflight SP1          | Genus-level count table               |
+| `input_phylum_taxonomy` | preflight SP1          | Phylum-level taxonomy table           |
+| `input_family_taxonomy` | preflight SP1          | Family-level taxonomy table           |
+| `input_genus_taxonomy`  | preflight SP1          | Genus-level taxonomy table            |
+| `metadata_file`         | preflight SP1          | Sample metadata                       |
+| `output_dir`            | preflight SP4          | Output directory                      |
+| `group_by`              | preflight SP5          | Optional metadata column for grouping |
+| `top_n`                 | default 50             | Top-N taxa for heatmaps               |
+| `top_n_taxa`            | default 20             | Top-N taxa for stacked bars           |
+| `preflight_verdict`     | preflight verdict file | Must be `GO` or `GO-WITH-WARNINGS`    |
 
 ### Outputs
 
@@ -77,12 +77,14 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 ### SP1 — Preflight verdict confirmed
 
 > **Evidence**: `cat "$RUN_DIR/preflight_verdict.txt"` returns `GO` or `GO-WITH-WARNINGS`.
+
 - ✅ PASS if: verdict is `GO` or `GO-WITH-WARNINGS`
 - ❌ FAIL if: verdict is `NO-GO` or file missing
 
 > **Recommend**: PASS → proceed to SP2.
->
+> 
 > Options:
+> 
 > - **(A) Preflight is GO, proceed (Recommended)**
 > - (B) Re-run preflight (in case inputs changed)
 > - (C) Abort
@@ -94,6 +96,7 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 ### SP2 — Stage 1: normalize counts → relative abundance
 
 > **Evidence**: I will run:
+> 
 > ```bash
 > pixi run --manifest-path env/visualization/pixi.toml \
 >   Rscript bin/normalize_abundance.R \
@@ -103,13 +106,15 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 >     --input_genus_counts "$input_genus_counts" \
 >     --output_dir "$output_dir"
 > ```
+
 - ✅ PASS if: all 4 `*_relabundance.tsv` files created with non-empty content
 - ⚠️ WARN if: any file is empty (sample filtering removed all counts)
 - ❌ FAIL if: script exited non-zero, or any file missing
 
 > **Recommend**: PASS → proceed to SP3. WARN → confirm. FAIL → re-run with corrected inputs.
->
+> 
 > Options:
+> 
 > - **(A) Stage 1 succeeded, proceed to Stage 2 (Recommended)**
 > - (B) Stage 1 had warnings; I'm OK with the output
 > - (C) Abort
@@ -121,6 +126,7 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 ### SP3 — Stage 2: CLR-transformed heatmaps
 
 > **Evidence**: I will run:
+> 
 > ```bash
 > pixi run --manifest-path env/visualization/pixi.toml \
 >   Rscript bin/plot_heatmaps.R \
@@ -135,13 +141,15 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 >     --group_by "$group_by" \
 >     --top_n 50
 > ```
+
 - ✅ PASS if: 3 `heatmap_*.pdf` files created with non-zero size
 - ⚠️ WARN if: any heatmap shows < 3 features (dataset too sparse for top-50)
 - ❌ FAIL if: script exited non-zero, or any PDF missing/corrupt
 
 > **Recommend**: PASS → proceed to SP4. WARN → confirm. FAIL → re-run with smaller `--top_n` or check inputs.
->
+> 
 > Options:
+> 
 > - **(A) Stage 2 succeeded, proceed to Stage 3 (Recommended)**
 > - (B) Re-run with smaller `--top_n 20`
 > - (C) Abort
@@ -153,6 +161,7 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 ### SP4 — Stage 3: stacked-bar charts
 
 > **Evidence**: I will run:
+> 
 > ```bash
 > pixi run --manifest-path env/visualization/pixi.toml \
 >   Rscript bin/plot_stacked_bar.R \
@@ -167,13 +176,15 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 >     --output_dir "$output_dir" \
 >     --top_n_taxa 20
 > ```
+
 - ✅ PASS if: 3 `stacked_bar_chart_*.pdf` files created
 - ⚠️ WARN if: any chart shows only "Other" (dataset has very even distribution; top-20 may not be distinct enough)
 - ❌ FAIL if: script exited non-zero, or any PDF missing/corrupt
 
 > **Recommend**: PASS → write `run_summary.json`. WARN → confirm. FAIL → re-run with smaller `--top_n_taxa`.
->
+> 
 > Options:
+> 
 > - **(A) Stage 3 succeeded, write run_summary.json (Recommended)**
 > - (B) Re-run with `--top_n_taxa 5`
 > - (C) Abort
@@ -228,17 +239,17 @@ And write `run_summary.json`:
 
 ## 2. Troubleshooting — Signature library
 
-| Signature in stderr / log | Likely cause | Suggested fix |
-| --- | --- | --- |
-| `cutadapt: adapter not found` | (n/a — this skill does not run cutadapt) | n/a |
-| `Error: No common samples between relative abundance table and metadata` | Sample-ID mismatch (should have been caught by preflight SP2) | Re-run preflight; fix sample-ID alignment in input tables |
-| `Error in library(sechm) : there is no package called 'sechm'` | sechm not in pixi env | `pixi add --manifest-path env/visualization/pixi.toml bioconductor-sechm` |
-| `Error in plotAbundance: 'rank' must be a column in rowData(tse)` | Taxonomy table missing the expected rank column | Verify taxonomy table has a column matching the level name (`Phylum` / `Family` / `Genus`) |
-| `PDF device: cannot open file` | Output directory not writable | Re-run preflight SP4 to identify a writable output dir |
-| `Rscript: command not found` | pixi env not activated | Re-invoke `pixi run --manifest-path env/visualization/pixi.toml ...` instead of bare `Rscript` |
-| `Heatmap is empty (no features passed the top_n filter)` | `--top_n` is too small for the dataset | Re-run with `--top_n 100` (default 50); or check that count table is not empty |
-| `Stacked bar shows only "Other" (no top-N taxa)` | All taxa are below `--top_n_taxa` threshold (dataset has very even distribution) | Re-run with `--top_n_taxa 5` (default 20); or check that count table is not uniform |
-| `Error: gpar(fontsize = 8)` from ComplexHeatmap | ComplexHeatmap version incompatible with sechm | Update both: `pixi run --manifest-path env/visualization/pixi.toml R -e 'BiocManager::install("ComplexHeatmap"); BiocManager::install("sechm")'` |
+| Signature in stderr / log                                                | Likely cause                                                                     | Suggested fix                                                                                                                                    |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `cutadapt: adapter not found`                                            | (n/a — this skill does not run cutadapt)                                         | n/a                                                                                                                                              |
+| `Error: No common samples between relative abundance table and metadata` | Sample-ID mismatch (should have been caught by preflight SP2)                    | Re-run preflight; fix sample-ID alignment in input tables                                                                                        |
+| `Error in library(sechm) : there is no package called 'sechm'`           | sechm not in pixi env                                                            | `pixi add --manifest-path env/visualization/pixi.toml bioconductor-sechm`                                                                        |
+| `Error in plotAbundance: 'rank' must be a column in rowData(tse)`        | Taxonomy table missing the expected rank column                                  | Verify taxonomy table has a column matching the level name (`Phylum` / `Family` / `Genus`)                                                       |
+| `PDF device: cannot open file`                                           | Output directory not writable                                                    | Re-run preflight SP4 to identify a writable output dir                                                                                           |
+| `Rscript: command not found`                                             | pixi env not activated                                                           | Re-invoke `pixi run --manifest-path env/visualization/pixi.toml ...` instead of bare `Rscript`                                                   |
+| `Heatmap is empty (no features passed the top_n filter)`                 | `--top_n` is too small for the dataset                                           | Re-run with `--top_n 100` (default 50); or check that count table is not empty                                                                   |
+| `Stacked bar shows only "Other" (no top-N taxa)`                         | All taxa are below `--top_n_taxa` threshold (dataset has very even distribution) | Re-run with `--top_n_taxa 5` (default 20); or check that count table is not uniform                                                              |
+| `Error: gpar(fontsize = 8)` from ComplexHeatmap                          | ComplexHeatmap version incompatible with sechm                                   | Update both: `pixi run --manifest-path env/visualization/pixi.toml R -e 'BiocManager::install("ComplexHeatmap"); BiocManager::install("sechm")'` |
 
 ## 3. Related skills
 
