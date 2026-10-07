@@ -1,8 +1,8 @@
 ---
 name: reference-db
-description: Curated catalog of reference-database direct-download URLs for the four nf-edna markers (16S Bacteria/Archaea, 18S-V9 Eukaryota, COI Metazoa, 12S fish eDNA), with workflows for retrieving them and (when needed) training DECIPHER IDTAXA classifiers. Covers SILVA (16S/18S, DECIPHER pre-trained via Google Drive), PR2 (18S, DECIPHER pre-trained via GitHub releases), MIDORI2 (COI/12S mitochondrial, requires DECIPHER training), MitoFish (12S fish, raw FASTA + DECIPHER training), and BOLD (COI, requires DECIPHER training). Includes NCBI eutils access for custom FASTA construction (e.g., 12S Actinopterygii) via the existing `idtaxa-training` sub-skill. Mirrors the BettaMt ask-user-stop-points pattern. Use when the user asks to "download SILVA reference", "get PR2 database", "find MitoFish FASTA", "COI reference for metabarcoding", "where do I download 16S reference", "where do I download 18S reference", "where do I download 12S reference", "where do I download COI reference", "I need a reference for nf-edna", "what reference should I use for marker X", or "train a reference for marker X".
-version: 1.1.5
-updated: "2026-10-05"
+description: Curated catalog of reference-database direct-download URLs for the four edna-agent markers (16S Bacteria/Archaea, 18S-V9 Eukaryota, COI Metazoa, 12S fish eDNA), with workflows for retrieving them and (when needed) training DECIPHER IDTAXA classifiers. Covers SILVA (16S/18S, DECIPHER pre-trained via Google Drive), PR2 (18S, DECIPHER pre-trained via GitHub releases), MIDORI2 (COI/12S mitochondrial, requires DECIPHER training), MitoFish (12S fish, raw FASTA + DECIPHER training), and BOLD (COI, requires DECIPHER training). Includes NCBI eutils access for custom FASTA construction (e.g., 12S Actinopterygii) via the existing `idtaxa-training` sub-skill. Mirrors the BettaMt ask-user-stop-points pattern. Use when the user asks to "download SILVA reference", "get PR2 database", "find MitoFish FASTA", "COI reference for metabarcoding", "where do I download 16S reference", "where do I download 18S reference", "where do I download 12S reference", "where do I download COI reference", "I need a reference for edna-agent", "what reference should I use for marker X", or "train a reference for marker X".
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "download SILVA reference"
   - "get SILVA database"
@@ -17,7 +17,7 @@ triggers:
   - "where do I get the 18S reference"
   - "where do I get the 12S reference"
   - "where do I get the COI reference"
-  - "reference for nf-edna"
+  - "reference for edna-agent"
   - "what reference for marker X"
   - "train a reference for X"
   - "retrieve reference database"
@@ -26,12 +26,12 @@ requires:
   - "Internet access (for SILVA Google Drive, GitHub releases, Zenodo, ftp.arb-silva.de, NCBI eutils)"
   - "Disk space: ≥ 5 GB free for SILVA (~1 GB), PR2 (~500 MB), MIDORI2 (~600 MB), MitoFish (~600 MB)"
   - "Optional: DECIPHER + rentrez (for training markers without a pre-trained IDTAXA reference)"
-  - "Optional: idtaxa-training sub-skill (in nf-edna) for custom-reference workflows"
+  - "Optional: idtaxa-training sub-skill (in edna-agent) for custom-reference workflows"
 ---
 
 # Sub-Skill: reference-db
 
-> **v1.0.0.** Curated catalog of **direct download URLs** for the four nf-edna marker reference databases (SILVA 16S/18S, PR2 18S, MIDORI2/MitoFish 12S, MIDORI2/BOLD COI). For each marker, the catalog distinguishes:
+> **v1.0.0.** Curated catalog of **direct download URLs** for the four edna-agent marker reference databases (SILVA 16S/18S, PR2 18S, MIDORI2/MitoFish 12S, MIDORI2/BOLD COI). For each marker, the catalog distinguishes:
 >
 > - **Pre-trained DECIPHER IDTAXA trainingFiles** (load directly via the patched `idtaxa_rds.R`): SILVA SSU r138.2, PR2 SSU v5.1.0, PR2 18S v4.13, UNITE 2025, Fungal LSU v11, RDP v18, GTDB r232, Contax v1, Warcup v2
 > - **Raw reference databases** that need DECIPHER training: SILVA ARB files (NR99), PR2 flat files, MIDORI2 GenBank-derived files, MitoFish, BOLD
@@ -51,15 +51,15 @@ This sub-skill serves two simultaneous audiences:
 
 Use this sub-skill when you need to:
 
-- Get a **reference database** for one of the four nf-edna markers (16S, 18S-V9, COI, 12S).
+- Get a **reference database** for one of the four edna-agent markers (16S, 18S-V9, COI, 12S).
 - Decide **which reference** to use for a specific marker (the catalog answers this directly).
 - Download a **DECIPHER-pre-trained IDTAXA file** (SILVA, PR2, UNITE, RDP, GTDB, Contax, Warcup, Fungal LSU).
 - **Train a custom IDTAXA model** from a raw reference (MIDORI2, BOLD, MitoFish, custom NCBI FASTA).
 
 **Do NOT use this skill** if:
 
-- You already have the reference file — invoke `idtaxa-training` or `nf-edna` directly.
-- You want to run nf-edna end-to-end without thinking about references — `nf-edna` `preflight/edna-intake` will redirect you here if the model is missing.
+- You already have the reference file — invoke `idtaxa-training` or `edna-agent` directly.
+- You want to run edna-agent end-to-end without thinking about references — `edna-agent` `preflight/edna-intake` will redirect you here if the model is missing.
 - You want to access NCBI programmatically for non-reference data (use `read-qc-trimming` for read data; use `entrez-*` skills in the GPTomics bioSkills ecosystem).
 
 ## 0. Orchestrator — detect phase, route to the right sub-skill
@@ -104,7 +104,7 @@ test -f "$RUN_DIR/preflight.md"             && PHASE="run"
 
 ### 1.1 SILVA — 16S / 18S (Bacteria, Archaea, Eukaryota)
 
-SILVA is the canonical ribosomal RNA reference for the small subunit (SSU = 16S/18S) and large subunit (LSU = 23S/28S). For nf-edna 16S and 18S-V9, use the **SSU** files.
+SILVA is the canonical ribosomal RNA reference for the small subunit (SSU = 16S/18S) and large subunit (LSU = 23S/28S). For edna-agent 16S and 18S-V9, use the **SSU** files.
 
 | Variant | DECIPHER-ready? | URL | Size | Format | License |
 |---|---|---|---|---|---|
@@ -113,7 +113,7 @@ SILVA is the canonical ribosomal RNA reference for the small subunit (SSU = 16S/
 | SILVA SSU r138.2 fasta + taxonomy | ❌ needs DECIPHER training | `https://www.arb-silva.de/fileadmin/silva_databases/current/Exports/SILVA_138.2_SSURef_tax_silva_trunc.fasta.gz` | 704 MB | fasta.gz + tax | SILVA dual-license |
 | SILVA 138 trainset (DADA2-formatted, species) | ❌ needs DECIPHER training | `https://www.arb-silva.de/fileadmin/silva_databases/release_138_2/DADA2/1.36.0/SSU/silva_nr99_v138.2_toSpecies_trainset.fa.gz` | 134 MB | fasta.gz | SILVA dual-license |
 
-**For nf-edna 16S / 18S**: use the **first row** (DECIPHER pre-trained). The user already has it at `assets/16s/SILVA_SSU_r138.2.rdata`.
+**For edna-agent 16S / 18S**: use the **first row** (DECIPHER pre-trained). The user already has it at `assets/16s/SILVA_SSU_r138.2.rdata`.
 
 ### 1.2 PR2 — 18S (Protists, Eukaryota)
 
@@ -127,7 +127,7 @@ PR2 (Protist Ribosomal Reference database) is the canonical reference for protis
 | PR2 v5.0.0 eKOI (COI extension, 2025) | ❌ needs DECIPHER training | `https://github.com/pr2database/pr2database/releases/tag/v5.1.1` (eKOI linked) | varies | xlsx + fasta | CC-BY-4.0 |
 | PR2 R-package (Zenodo, for offline use) | n/a | `https://zenodo.org/records/15129782` (DOI: 10.5281/zenodo.15129782) | 30 MB | R-package | CC-BY-4.0 |
 
-**For nf-edna 18S-V9**: use the **first row** (v5.1.0 SSU DECIPHER pre-trained).
+**For edna-agent 18S-V9**: use the **first row** (v5.1.0 SSU DECIPHER pre-trained).
 
 ### 1.3 MitoFish — 12S (Fish mitochondrial, MiFish-U primer amplicon)
 
@@ -140,7 +140,7 @@ MitoFish is the canonical fish mitochondrial genome reference, curated by the Na
 | 12S MiFish-U RDP classifier format | ✅ for RDP only (not DECIPHER) | `https://zenodo.org/records/4741464` | 2.8 KB | RDP classifier | CC-BY-4.0 |
 | 12S MitoFish reference set (QIIME-compatible) | ❌ needs DECIPHER training | `https://github.com/aomlomics/Mitohelper` | varies | fasta.gz | CC-BY-4.0 |
 
-**For nf-edna 12S**: there is **no pre-trained DECIPHER IDTAXA file for MitoFish**. Use the **first row** + chain to `idtaxa-training` Stage 1 (`prepare_ncbi_fasta_for_idtaxa.R`) to add DECIPHER headers via NCBI eutils, then Stage 2 (`train_idtaxa_model.R`) to train the model.
+**For edna-agent 12S**: there is **no pre-trained DECIPHER IDTAXA file for MitoFish**. Use the **first row** + chain to `idtaxa-training` Stage 1 (`prepare_ncbi_fasta_for_idtaxa.R`) to add DECIPHER headers via NCBI eutils, then Stage 2 (`train_idtaxa_model.R`) to train the model.
 
 ### 1.4 MIDORI2 — COI / 12S / mitochondrial (Metazoa)
 
@@ -154,7 +154,7 @@ MIDORI2 is the canonical reference for **metazoan mitochondrial genes**, built f
 | MIDORI2 download page | n/a | `https://www.reference-midori.info/download.php` | — | — | CC-BY-NC-4.0 |
 | MIDORI2 homepage | n/a | `https://www.reference-midori.info/` | — | — | CC-BY-NC-4.0 |
 
-**For nf-edna COI**: use **MIDORI2 COI** (free, CC-BY-NC, GenBank-curated) OR **BOLD** (gold standard, but requires BOLD data-portal access and is more restrictive). Both require DECIPHER training.
+**For edna-agent COI**: use **MIDORI2 COI** (free, CC-BY-NC, GenBank-curated) OR **BOLD** (gold standard, but requires BOLD data-portal access and is more restrictive). Both require DECIPHER training.
 
 ### 1.5 BOLD — COI (Metazoa, gold standard)
 
@@ -166,11 +166,11 @@ BOLD (Barcode of Life Data Systems) hosts the gold-standard COI reference librar
 | BOLD BOLDistilled (COI non-redundant) | � needs DECIPHER training | `https://boldsystems.org/data/BOLDistilled/` | varies | SINTAX | BOLD terms |
 | BOLD BINs data packages | ❌ needs DECIPHER training | `https://bins.boldsystems.org/index.php/datapackages` | varies | tar.gz | BOLD terms |
 
-**For nf-edna COI (gold standard)**: use the latest BOLD Public Data Package. Note: BOLD requires a registered account and license agreement. For a free alternative, use MIDORI2.
+**For edna-agent COI (gold standard)**: use the latest BOLD Public Data Package. Note: BOLD requires a registered account and license agreement. For a free alternative, use MIDORI2.
 
 ### 1.6 Other DECIPHER-pre-trained files (from DECIPHER Downloads)
 
-The DECIPHER package maintains its own catalog of pre-trained trainingFiles (all on Google Drive). These are useful as references for nf-edna or any DECIPHER workflow:
+The DECIPHER package maintains its own catalog of pre-trained trainingFiles (all on Google Drive). These are useful as references for edna-agent or any DECIPHER workflow:
 
 | File | Use case | Size |
 |---|---|---|
@@ -188,7 +188,7 @@ All at `https://decipher.codes/Downloads.html` (Google Drive links).
 
 ## 2. Decision Matrix
 
-| nf-edna marker | Best pre-trained DECIPHER IDTAXA file | Alternative (free, GenBank-curated) | Notes |
+| edna-agent marker | Best pre-trained DECIPHER IDTAXA file | Alternative (free, GenBank-curated) | Notes |
 |---|---|---|---|
 | **16S** (Bacteria/Archaea) | SILVA SSU r138.2 (modified) — 299 MB | GTDB r232 (modified) — 88 MB | SILVA is more widely used; GTDB is more current taxonomy |
 | **18S-V9** (Eukaryota) | PR2 v5.1.0 SSU — 412 MB | PR2 18S v4.13 — 150 MB | v5.1.0 is current; v4.13 is older DECIPHER format |
@@ -196,14 +196,14 @@ All at `https://decipher.codes/Downloads.html` (Google Drive links).
 | **12S** (fish eDNA) | **none** | MitoFish 12S NR + DECIPHER training | No pre-trained DECIPHER file exists for MitoFish |
 | **12S** (general vertebrate) | **none** | MIDORI2 UNIQ 12S + DECIPHER training | MIDORI2 has all vertebrates, not just fish |
 | **COI** (Metazoa) | **none** | MIDORI2 COI + DECIPHER training (CC-BY-NC, free) | BOLD COI + DECIPHER training (gold standard, requires BOLD account) |
-| **ITS** (fungi, not in nf-edna currently) | UNITE 2025 (unmodified) — 120 MB | Contax v1 — 26 MB, Warcup v2 — 7 MB | nf-edna doesn't support ITS yet |
+| **ITS** (fungi, not in edna-agent currently) | UNITE 2025 (unmodified) — 120 MB | Contax v1 — 26 MB, Warcup v2 — 7 MB | edna-agent doesn't support ITS yet |
 
 ## 3. Where downloaded files go
 
-By convention, the user places downloaded references in a directory structure that nf-edna can find:
+By convention, the user places downloaded references in a directory structure that edna-agent can find:
 
 ```
-$ASSETS_DIR/                    # typically /home/user/data/nf-edna/assets/
+$ASSETS_DIR/                    # typically /home/user/data/edna-agent/assets/
 ├── 16s/
 │   ├── SILVA_SSU_r138.2.rdata     # 16S reference (DECIPHER pre-trained)
 │   └── SILVA_SSU_r138.2.rdata.converted.rds  # auto-generated cache
@@ -274,7 +274,7 @@ Phases:
                           │ DECIPHER `.rds` / raw FASTA + trained `.rds`
                           ▼
                  ┌──────────────────┐
-                 │     nf-edna      │  ← main pipeline (uses the reference)
+                 │     edna-agent      │  ← main pipeline (uses the reference)
                  └──────────────────┘
                           ▲
                           │ (chains to)
@@ -284,7 +284,7 @@ Phases:
 ```
 
 - **Upstream**: nothing (this is a discovery + retrieval skill).
-- **Downstream**: `nf-edna` consumes the reference for production classification.
+- **Downstream**: `edna-agent` consumes the reference for production classification.
 - **Parallel**: `idtaxa-training` is invoked when the chosen reference needs DECIPHER training.
 
 ## 7. Troubleshooting — Signature library
@@ -293,7 +293,7 @@ Phases:
 | --- | --- | --- |
 | `curl: (6) Could not resolve host: drive.google.com` | No DNS / firewall blocking Google Drive | DECIPHER trainingFiles are hosted on Google Drive. Use a proxy or pick a non-Drive alternative (e.g., PR2 GitHub releases instead of SILVA on Drive) |
 | `gzip: not in gzip format` | Wrong file downloaded — DECIPHER trainingFiles are XZ-compressed RDX3 (not gzip) | Re-download; do NOT pipe through `gzip -d` directly. Use `unxz` first, then `unserialize` |
-| `unserialize(con): unknown input format` | The 5-byte RDX3 header wasn't skipped | Use the patched `bin/idtaxa_rds.R` (carried over from nf-edna v1.1.1) — it auto-detects RDX3 + XZ |
+| `unserialize(con): unknown input format` | The 5-byte RDX3 header wasn't skipped | Use the patched `bin/idtaxa_rds.R` (carried over from edna-agent v1.1.1) — it auto-detects RDX3 + XZ |
 | `readRDS(): cannot open file` | Path is wrong or the download was incomplete | Check `ls -lh <path>` matches the expected size; re-run with `-C -` to resume the download |
 | `MIDORI2 download: 403 Forbidden` | The MIDORI2 site uses session-based auth; direct download links sometimes 403 | Try the Zenodo mirror (DOI 10.5281/zenodo.7560582) or contact the maintainers |
 | `BOLD download: account required` | BOLD Public Data Package requires a registered BOLD account | Either register at boldsystems.org OR use MIDORI2 (free alternative) |
@@ -303,8 +303,8 @@ Phases:
 ## 8. Related skills
 
 - **idtaxa-training** (this repo: `idtaxa-training/`) — downstream: trains raw FASTA into DECIPHER `.rds` via NCBI eutils + DECIPHER::LearnTaxa
-- **nf-edna** (`~/.pi/agent/skills/nf-edna/`) — downstream: uses the reference for production 16S/18S/COI/12S eDNA classification
-- **edna-visualize** (`~/.pi/agent/skills/nf-edna/edna-visualize/`) — sibling: produces figures from classification outputs
+- **edna-agent** (`~/.pi/agent/skills/edna-agent/`) — downstream: uses the reference for production 16S/18S/COI/12S eDNA classification
+- **edna-visualize** (`~/.pi/agent/skills/edna-agent/edna-visualize/`) — sibling: produces figures from classification outputs
 - **edna-gbif-publish** (`~/.pi/agent/skills/edna-gbif-publish/`) — downstream: publishes classification results to GBIF
 - **bioSkills database-access** (external: github.com/GPTomics/bioSkills/tree/main/database-access) — inspiration; covers NCBI/UniProt/Ensembl APIs (different scope — programmatic access vs reference DB retrieval)
 

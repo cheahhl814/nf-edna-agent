@@ -2,7 +2,7 @@
 """
 summarise_run.py — Generate an AI-friendly JSON summary of a completed eDNA pipeline run.
 
-Reads results from a nf-edna run and writes run_summary.json, which consolidates all
+Reads results from a edna-agent run and writes run_summary.json, which consolidates all
 key statistics into a single compact file suitable for AI interpretation without
 loading large raw tables into context.
 
@@ -10,7 +10,7 @@ Usage:
     python summarise_run.py --results_dir <path> --run_id <id> [--output <path>]
 
 Example:
-    python nf-edna/bin/summarise_run.py \
+    python edna-agent/bin/summarise_run.py \
         --results_dir analyses/2024K1/results \
         --run_id 2024K1-V3 \
         --output analyses/2024K1/results/2024K1-V3/run_summary.json

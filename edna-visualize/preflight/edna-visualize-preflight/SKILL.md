@@ -1,8 +1,8 @@
 ---
 name: edna-visualize-preflight
 description: Preflight validation for the eDNA-visualize sub-skill. Verifies (1) all 4 count tables + 3 taxonomy tables + metadata file exist and parse, (2) sample IDs are consistent across all 8 inputs, (3) mia/miaViz/sechm/ComplexHeatmap packages are available in pixi env, (4) output directory is writable, (5) --group_by column exists in metadata. Produces a GO / GO-WITH-WARNINGS / NO-GO verdict gate before any plotting script is invoked.
-version: 1.1.5
-updated: "2026-10-05"
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "eDNA-visualize preflight"
   - "validate eDNA figure inputs"
@@ -26,7 +26,7 @@ This sub-skill serves two simultaneous audiences:
 
 Use this sub-skill **always** before invoking `run/edna-visualize-run`. Its verdict is the gate that prevents cryptic `Rscript` errors and silent zero-row outputs.
 
-**Do NOT use this sub-skill** for: validating raw sequencing reads (use `read-qc-trimming`); validating completed nf-edna runs (use `nf-edna`).
+**Do NOT use this sub-skill** for: validating raw sequencing reads (use `read-qc-trimming`); validating completed edna-agent runs (use `edna-agent`).
 
 ## 0. Inputs / Outputs
 
@@ -180,7 +180,7 @@ fi
 
 - **`eDNA-visualize`** (parent) — invokes this sub-skill from SP0
 - **`run/edna-visualize-run`** (sibling) — consumes this sub-skill's verdict
-- **`nf-edna/preflight/edna-intake`** — similar stop-point structure for nf-edna runs
+- **`edna-agent/preflight/edna-intake`** — similar stop-point structure for edna-agent runs
 
 ## Verification
 

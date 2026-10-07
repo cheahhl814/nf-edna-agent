@@ -1,8 +1,8 @@
 ---
 name: idtaxa-training-preflight
 description: Preflight validation for the idtaxa-training sub-skill. Verifies (1) input FASTA exists and parses, (2) NCBI eutils connectivity (for rentrez-based stage 1), (3) DECIPHER availability in pixi env, (4) output paths are writable, (5) FASTA headers contain parsable accessions, (6) marker gene confirmed, (7) memory + batch size estimates. Produces a GO / GO-WITH-WARNINGS / NO-GO verdict gate before any stage script is invoked.
-version: 1.1.5
-updated: "2026-10-05"
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "idtaxa preflight"
   - "validate IDTAXA training inputs"
@@ -28,7 +28,7 @@ This sub-skill serves two simultaneous audiences:
 
 Use this sub-skill **always** before invoking `run/idtaxa-training-run`. Its verdict is the gate that prevents cryptic `pixi run Rscript` errors.
 
-**Do NOT use this sub-skill** for: validating raw sequencing reads (use `read-qc-trimming`); validating completed nf-edna runs (use `nf-edna`).
+**Do NOT use this sub-skill** for: validating raw sequencing reads (use `read-qc-trimming`); validating completed edna-agent runs (use `edna-agent`).
 
 ## 0. Inputs / Outputs
 
@@ -214,7 +214,7 @@ fi
 
 - **`idtaxa-training`** (parent) — invokes this sub-skill from SP0
 - **`run/idtaxa-training-run`** (sibling) — consumes this sub-skill's verdict
-- **`nf-edna/preflight/edna-intake`** — similar stop-point structure for nf-edna runs
+- **`edna-agent/preflight/edna-intake`** — similar stop-point structure for edna-agent runs
 
 ## Verification
 

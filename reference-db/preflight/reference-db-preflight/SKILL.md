@@ -1,8 +1,8 @@
 ---
 name: reference-db-preflight
 description: Preflight validation for the reference-db sub-skill. Verifies (1) marker confirmed (16S/18S-V9/COI/12S), (2) disk space (≥ 5 GB), (3) Internet connectivity to canonical URL (HEAD request), (4) asset directory writable, (5) license accepted for the chosen reference, (6) if training required — DECIPHER + rentrez available. Produces a GO / GO-WITH-WARNINGS / NO-GO verdict gate before any download command is invoked.
-version: 1.1.5
-updated: "2026-10-05"
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "reference-db preflight"
   - "validate reference DB download"
@@ -38,7 +38,7 @@ Use this sub-skill **always** before invoking `run/reference-db-run`. Its verdic
 | --- | --- | --- | --- |
 | `marker` | enum | yes | `16s` / `18s-v9` / `coi` / `12s` |
 | `reference_choice` | str | yes | URL or shorthand ID (e.g., `silva-138.2`, `pr2-5.1.0`, `mitofish-12s-nr`, `midori2-coi`, `bold-coi`) |
-| `assets_dir` | path | yes | Where the downloaded file will be placed (typically `$HOME/data/nf-edna/assets/<marker>/`) |
+| `assets_dir` | path | yes | Where the downloaded file will be placed (typically `$HOME/data/edna-agent/assets/<marker>/`) |
 | `train_required` | bool | no (auto-detected) | If true, the reference needs DECIPHER training (`idtaxa-training` Stage 1+2 chain) |
 
 ### Outputs
@@ -64,7 +64,7 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 > Options:
 > - **(A) Use marker X (Recommended)**
 > - (B) Use a different supported marker
-> - (C) Abort — nf-edna doesn't support my marker
+> - (C) Abort — edna-agent doesn't support my marker
 
 **Auto-pick when**: marker explicitly supplied and matches one of the four.
 
@@ -200,7 +200,7 @@ fi
 - **`reference-db`** (parent) — invokes this sub-skill from SP0
 - **`run/reference-db-run`** (sibling) — consumes this sub-skill's verdict
 - **`idtaxa-training`** (sibling) — invoked by the run sub-skill when `train_required = true`
-- **`nf-edna/preflight/edna-intake`** — analogous preflight for nf-edna runs
+- **`edna-agent/preflight/edna-intake`** — analogous preflight for edna-agent runs
 
 ## Verification
 

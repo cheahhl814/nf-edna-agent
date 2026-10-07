@@ -6,8 +6,8 @@ description: >-
   (2) DECIPHER-format FASTA → trained `Taxa Train` model via `train_idtaxa_model.R`,
   (3) model + DECIPHER FASTA → species list + classification via `extract_scientific_names.jl`
   and the patched `idtaxa_rds.R`. Writes `run_summary.json` for downstream consumers.
-version: 1.1.5
-updated: "2026-10-05"
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "run IDTAXA training"
   - "execute IDTAXA stages"
@@ -33,7 +33,7 @@ This sub-skill serves two simultaneous audiences:
 
 Use this sub-skill **after** `preflight/idtaxa-training-preflight` returns a `GO` or `GO-WITH-WARNINGS` verdict.
 
-**Do NOT use this sub-skill** for: preflight validation (use `idtaxa-training-preflight`); production-scale eDNA classification (use `nf-edna`).
+**Do NOT use this sub-skill** for: preflight validation (use `idtaxa-training-preflight`); production-scale eDNA classification (use `edna-agent`).
 
 ## 0. Inputs / Outputs
 
@@ -215,7 +215,7 @@ And write `run_summary.json`:
 
 ## 2. Patched `bin/idtaxa_rds.R` — DECIPHER RDX3 + XZ support
 
-The `bin/idtaxa_rds.R` script is **patched** (carried over from `nf-edna` v1.1.1) to load three model formats via magic-byte sniffing:
+The `bin/idtaxa_rds.R` script is **patched** (carried over from `edna-agent` v1.1.1) to load three model formats via magic-byte sniffing:
 
 1. **Standard R RDS** (DECIPHER::IdTaxa output saved via `saveRDS`) — load via `readRDS()`
 2. **DECIPHER RDX3 binary format** (the SILVA trainingFile, gzip- or XZ-compressed) — skip 5-byte `RDX3\n` header, then `unserialize()`, extract `obj$trainingSet`
@@ -229,7 +229,7 @@ Without this patch, users with pre-existing DECIPHER trainingFiles (e.g., SILVA 
 - Re-train the model from scratch (slow for large references)
 - Manually decompress and parse the XDR stream
 
-The patched loader makes this transparent. See `signature library Finding 7` in the upstream `nf-edna` for the full rationale.
+The patched loader makes this transparent. See `signature library Finding 7` in the upstream `edna-agent` for the full rationale.
 
 ### Auto-cached conversion
 
@@ -253,7 +253,7 @@ When the patched loader detects an RDX3 file, it also writes a converted `.conve
 
 - **`idtaxa-training`** (parent) — invokes this sub-skill from SP0
 - **`preflight/idtaxa-training-preflight`** (prerequisite) — must pass verdict before this sub-skill runs
-- **`nf-edna`** — downstream: consumes the trained `.rds` for production classification
+- **`edna-agent`** — downstream: consumes the trained `.rds` for production classification
 - **`eDNA-visualize`** — sibling: produces figures from the classification TSV
 
 ## Verification

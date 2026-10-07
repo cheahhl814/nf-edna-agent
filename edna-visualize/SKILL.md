@@ -6,15 +6,15 @@ description: >-
   `normalize_abundance.R`, (2) CLR-transformed ComplexHeatmap heatmaps at
   Phylum/Family/Genus levels via `plot_heatmaps.R`, (3) high-contrast stacked-bar
   charts with rare-taxa lumping via `plot_stacked_bar.R`. Accepts any 4-level count
-  table (nf-edna output OR any mia-compatible TSE). Mirrors the BettaMt
+  table (edna-agent output OR any mia-compatible TSE). Mirrors the BettaMt
   ask-user-stop-points pattern. Use when the user asks to make eDNA figures, plot
   heatmap of microbial communities, stacked bar chart of ASVs, publication-ready
   eDNA plot, CLR heatmap, normalize ASV counts, Phylum/Family/Genus composition
-  plot, or I have agglomerated counts, make figures. Pairs with `nf-edna`
+  plot, or I have agglomerated counts, make figures. Pairs with `edna-agent`
   (upstream: produces the count tables) and `idtaxa-training` (sibling: produces
   the model used to generate classifications).
-version: 1.1.5
-updated: "2026-10-05"
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "make eDNA figures"
   - "plot heatmap of microbial communities"
@@ -36,7 +36,7 @@ requires:
 
 # Sub-Skill: eDNA-visualize
 
-> **v1.0.0.** Wraps three end-to-end stages for generating publication-ready eDNA figures: (1) counts → relative-abundance normalization, (2) CLR-transformed ComplexHeatmap heatmaps at 3 taxonomic levels, (3) high-contrast stacked-bar charts with rare-taxa lumping. Accepts any 4-level count table (nf-edna output OR any mia-compatible TSE). Built on the `mia` Bioconductor ecosystem (TreeSummarizedExperiment + miaViz + sechm + ComplexHeatmap).
+> **v1.0.0.** Wraps three end-to-end stages for generating publication-ready eDNA figures: (1) counts → relative-abundance normalization, (2) CLR-transformed ComplexHeatmap heatmaps at 3 taxonomic levels, (3) high-contrast stacked-bar charts with rare-taxa lumping. Accepts any 4-level count table (edna-agent output OR any mia-compatible TSE). Built on the `mia` Bioconductor ecosystem (TreeSummarizedExperiment + miaViz + sechm + ComplexHeatmap).
 >
 > **This SKILL.md is a router.** It does not duplicate logic from the sub-skills. Its job is to ask: *what stage is the user at, and which sub-skill should they invoke next?*
 
@@ -58,9 +58,9 @@ Use this sub-skill when you need to:
 
 **Do NOT use this skill** if:
 
-- You have raw FASTQ reads — start with `read-qc-trimming` then `nf-edna` first.
-- You want a fully-managed Nextflow pipeline — use `nf-edna` (which can also produce figures).
-- You want statistical analyses (alpha / beta diversity, differential abundance) — use `nf-edna`.
+- You have raw FASTQ reads — start with `read-qc-trimming` then `edna-agent` first.
+- You want a fully-managed Nextflow pipeline — use `edna-agent` (which can also produce figures).
+- You want statistical analyses (alpha / beta diversity, differential abundance) — use `edna-agent`.
 
 ## 0. Orchestrator — detect phase, route to the right sub-skill
 
@@ -71,7 +71,7 @@ This sub-skill is a **router**. It does not run the R scripts itself. Its job is
 By convention the agent writes handoff files to a run directory for the **visualization run under construction**. Default: a timestamped directory at the project root. Override with `RUN_DIR` env var.
 
 ```bash
-# Example: visualizing an nf-edna output run
+# Example: visualizing an edna-agent output run
 RUN_DIR=<your-run-dir>/run
 ```
 
@@ -202,7 +202,7 @@ Phases:
 
 ```
                  ┌──────────────────┐
-                 │     nf-edna      │  (or any mia-compatible source)
+                 │     edna-agent      │  (or any mia-compatible source)
                  └────────┬─────────┘
                           │ 4 count tables + 3 taxonomy tables + metadata
                           ▼
@@ -219,7 +219,7 @@ Phases:
                  └──────────────────┘
 ```
 
-- **Upstream**: any source producing 4-level count tables (nf-edna `classify.nf` agglomerate_data output, or manual `mia` workflows).
+- **Upstream**: any source producing 4-level count tables (edna-agent `classify.nf` agglomerate_data output, or manual `mia` workflows).
 - **Downstream**: figures go directly into manuscripts, lab-meeting slides, or supplementary materials of GBIF-published reports.
 - **Parallel**: `idtaxa-training` produces the classifier; this skill consumes the resulting classifications.
 
@@ -237,7 +237,7 @@ Phases:
 
 ## 8. Related skills
 
-- **nf-edna** (`~/.pi/agent/skills/nf-edna/`) — upstream: produces the 4 count tables + 3 taxonomy tables via `classify.nf:agglomerate_data`
+- **edna-agent** (`~/.pi/agent/skills/edna-agent/`) — upstream: produces the 4 count tables + 3 taxonomy tables via `classify.nf:agglomerate_data`
 - **idtaxa-training** (`~/.pi/agent/skills/idtaxa-training/`) — sibling: produces the classifier that generated the classifications being visualized
 - **read-qc-trimming** (`~/.pi/agent/skills/read-qc-trimming/`) — upstream: pre-processes raw reads
 - **html-template-pack** (`~/.pi/agent/skills/html-template-pack/`) — downstream: package figures into a reviewable HTML report

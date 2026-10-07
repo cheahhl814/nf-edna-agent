@@ -29,13 +29,13 @@ Use `eDNA-visualize` when you need to:
 - Generate stacked-bar charts with the top-N taxa displayed individually and the rest lumped as "Other"
 - Produce publication-ready figures for a 16S / 18S-V9 / COI / 12S eDNA dataset
 
-Do NOT use this skill for raw FASTQ processing (use `read-qc-trimming` then `nf-edna`), or for statistical analyses (use `nf-edna`).
+Do NOT use this skill for raw FASTQ processing (use `read-qc-trimming` then `edna-agent`), or for statistical analyses (use `edna-agent`).
 
 ## Where it fits
 
 ```
                  ┌──────────────────┐
-                 │     nf-edna      │  (or any mia-compatible source)
+                 │     edna-agent      │  (or any mia-compatible source)
                  └────────┬─────────┘
                           │ 4 count tables + 3 taxonomy tables + metadata
                           ▼
@@ -88,7 +88,7 @@ eDNA-visualize/
 ## Example usage
 
 ```bash
-# With an nf-edna output directory containing:
+# With an edna-agent output directory containing:
 #   results/run_id/classify/asv_counts.tsv
 #   results/run_id/classify/phylum_counts.tsv + phylum_taxonomy.tsv
 #   results/run_id/classify/family_counts.tsv + family_taxonomy.tsv
@@ -131,7 +131,7 @@ pixi run --manifest-path env/visualization/pixi.toml \
 
 ## Related skills
 
-- **nf-edna** (`~/.pi/agent/skills/nf-edna/`) — upstream: produces the 4 count tables + 3 taxonomy tables via `classify.nf:agglomerate_data`
+- **edna-agent** (`~/.pi/agent/skills/edna-agent/`) — upstream: produces the 4 count tables + 3 taxonomy tables via `classify.nf:agglomerate_data`
 - **idtaxa-training** (`~/.pi/agent/skills/idtaxa-training/`) — sibling: produces the classifier that generated the classifications being visualized
 - **read-qc-trimming** (`~/.pi/agent/skills/read-qc-trimming/`) — upstream: pre-processes raw reads
 - **html-template-pack** (`~/.pi/agent/skills/html-template-pack/`) — downstream: package figures into a reviewable HTML report

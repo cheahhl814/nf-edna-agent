@@ -1,12 +1,12 @@
 # Sub-Skill: reference-db
 
-Curated catalog of **direct download URLs** for the four nf-edna marker reference databases (16S Bacteria/Archaea, 18S-V9 Eukaryota, COI Metazoa, 12S fish eDNA), with workflows for retrieving them and (when needed) training DECIPHER IDTAXA classifiers.
+Curated catalog of **direct download URLs** for the four edna-agent marker reference databases (16S Bacteria/Archaea, 18S-V9 Eukaryota, COI Metazoa, 12S fish eDNA), with workflows for retrieving them and (when needed) training DECIPHER IDTAXA classifiers.
 
 ## What it does
 
 For each marker, the catalog distinguishes:
 
-- **Pre-trained DECIPHER IDTAXA trainingFiles** (load directly via the patched `bin/idtaxa_rds.R` from the nf-edna skill):
+- **Pre-trained DECIPHER IDTAXA trainingFiles** (load directly via the patched `bin/idtaxa_rds.R` from the edna-agent skill):
   - **SILVA SSU r138.2 (modified)** — 299 MB, RDX3 format, Google Drive
   - **PR2 v5.1.0 SSU** — 412 MB, RDS gzip format, GitHub releases
   - **PR2 18S v4.13** — 150 MB, RDX3 format, Google Drive (older version)
@@ -30,12 +30,12 @@ For each reference, the catalog gives:
 
 Use `reference-db` when you need to:
 
-- Get a reference database for one of the four nf-edna markers (16S, 18S-V9, COI, 12S).
+- Get a reference database for one of the four edna-agent markers (16S, 18S-V9, COI, 12S).
 - Decide which reference to use for a specific marker (the catalog answers this directly).
 - Download a DECIPHER-pre-trained IDTAXA file (SILVA, PR2, UNITE, RDP, GTDB, Contax, Warcup, Fungal LSU).
 - Train a custom IDTAXA model from a raw reference (MIDORI2, BOLD, MitoFish, custom NCBI FASTA).
 
-Do NOT use this skill if you already have the reference file — invoke `idtaxa-training` or `nf-edna` directly.
+Do NOT use this skill if you already have the reference file — invoke `idtaxa-training` or `edna-agent` directly.
 
 ## Where it fits
 
@@ -46,7 +46,7 @@ Do NOT use this skill if you already have the reference file — invoke `idtaxa-
             │ DECIPHER `.rds` / raw FASTA + trained `.rds`
             ▼
    ┌──────────────────┐
-   │     nf-edna      │  ← main pipeline (uses the reference)
+   │     edna-agent      │  ← main pipeline (uses the reference)
    └──────────────────�
             ▲
             │ (chains to)
@@ -101,8 +101,8 @@ reference-db/
 ## Related skills
 
 - **idtaxa-training** (this repo: `idtaxa-training/`) — downstream: trains raw FASTA into DECIPHER `.rds` via NCBI eutils + DECIPHER::LearnTaxa
-- **nf-edna** (`~/.pi/agent/skills/nf-edna/`) — downstream: uses the reference for production 16S/18S/COI/12S eDNA classification
-- **edna-visualize** (`~/.pi/agent/skills/nf-edna/edna-visualize/`) — sibling: produces figures from classification outputs
+- **edna-agent** (`~/.pi/agent/skills/edna-agent/`) — downstream: uses the reference for production 16S/18S/COI/12S eDNA classification
+- **edna-visualize** (`~/.pi/agent/skills/edna-agent/edna-visualize/`) — sibling: produces figures from classification outputs
 - **edna-gbif-publish** (`~/.pi/agent/skills/edna-gbif-publish/`) — downstream: publishes classification results to GBIF
 - **bioSkills database-access** (external: github.com/GPTomics/bioSkills/tree/main/database-access) — inspiration; covers NCBI/UniProt/Ensembl APIs
 

@@ -6,8 +6,8 @@ description: >-
   (2) CLR-transformed ComplexHeatmap heatmaps at Phylum/Family/Genus levels via `plot_heatmaps.R`,
   (3) high-contrast stacked-bar charts via `plot_stacked_bar.R`.
   Writes `run_summary.json` for downstream consumers.
-version: 1.1.5
-updated: "2026-10-05"
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "run eDNA-visualize"
   - "execute eDNA figure generation"
@@ -31,7 +31,7 @@ This sub-skill serves two simultaneous audiences:
 
 Use this sub-skill **after** `preflight/edna-visualize-preflight` returns a `GO` or `GO-WITH-WARNINGS` verdict.
 
-**Do NOT use this sub-skill** for: preflight validation (use `edna-visualize-preflight`); production-scale eDNA classification (use `nf-edna`).
+**Do NOT use this sub-skill** for: preflight validation (use `edna-visualize-preflight`); production-scale eDNA classification (use `edna-agent`).
 
 ## 0. Inputs / Outputs
 
@@ -255,7 +255,7 @@ And write `run_summary.json`:
 
 - **`eDNA-visualize`** (parent) — invokes this sub-skill from SP0
 - **`preflight/edna-visualize-preflight`** (prerequisite) — must pass verdict before this sub-skill runs
-- **`nf-edna`** — upstream: produces the 4 count tables + 3 taxonomy tables
+- **`edna-agent`** — upstream: produces the 4 count tables + 3 taxonomy tables
 - **`idtaxa-training`** — sibling: produces the classifier that generated the classifications being visualized
 
 ## Verification

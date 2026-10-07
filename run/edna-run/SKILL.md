@@ -1,12 +1,11 @@
 ---
 name: edna-run
-description: "Execute the correct nf-edna pipeline stage(s) for the run's marker preset, monitor progress, and update pipeline_state.json. Refuses to execute when the upstream preflight/edna-intake verdict is NO-GO. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'run eDNA pipeline', 'execute eDNA stages', 'nextflow run nf-edna', 'continue eDNA run', 'eDNA QC stage', 'eDNA denoise', 'eDNA classify', 'eDNA diversity', 'eDNA association'."
-version: 1.1.5
-updated: "2026-10-05"
+description: "Execute the correct eDNA metabarcoding stage(s) for the run's marker preset — agent-driven: the agent constructs the stage's tool commands from the canonical recipe table, shows them to the scientist, executes them under the per-stage pixi environments, and updates pipeline_state.json only after verified success. Stages: qc (cutadapt + FastQC), denoise (NGmerge + VSEARCH UNOISE3 + decontam + negative-control filter), classify (DECIPHER IDTAXA + confidence filter + agglomeration + optional geocuration), diversity (mafft + FastTree + alpha + beta/PERMANOVA + community typing), association (differential abundance + correlations). Refuses to execute when the upstream preflight/edna-intake verdict is NO-GO. Has 4 explicit ask-user stop points (SP1–SP4). Triggers: 'run eDNA pipeline', 'execute eDNA stages', 'continue eDNA run', 'eDNA QC stage', 'eDNA denoise', 'eDNA classify', 'eDNA diversity', 'eDNA association'."
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "run eDNA pipeline"
   - "execute eDNA stages"
-  - "nextflow run nf-edna"
   - "continue eDNA run"
   - "eDNA QC stage"
   - "eDNA denoise"
@@ -17,31 +16,24 @@ triggers:
 
 # edna-run
 
-> **v1.1.0.** Adds the canonical BettaMt structure (§0 Inputs/Outputs contract, §0.5 Ask-User Stop Points with Evidence + Recommend + Options, §Troubleshooting — Signature library, preflight verdict-gate enforcement). The procedure body (Steps 1–9 below) is unchanged from v1.0.0 — only the structured wrappers were added. Mirrors `bioinfo-skill-creator/preflight/skill-creator-preflight/SKILL.md` pattern (Evidence + Recommend + Options for every ambiguity).
+> **v1.2.0.** Agent-driven only. The `nextflow run` command-construction steps were replaced by the canonical **stage recipe tables** below: each recipe is the exact tool invocation validated on real data (2026-08-19 NF 24 + 2026-10-07 agent-driven rounds). Marker preset + run params are merged into ONE JSON at intake; recipes read merged parameters directly. New signature-library entries from the round-2 battle-test: missing env dependencies (NGmerge), mia↔rbiom pin, empty `--num_clusters`, rank case sensitivity, kingdoms vs mitochondrial superkingdom.
 
 ## Audience
 
-This skill serves two simultaneous audiences:
-
-- **AI Coding Agents** — triggered by the phrases above. The agent must read `pipeline_state.json`, enforce the verdict gate (SP1), determine the next stage to run (Step 2), construct the exact `nextflow run` command with the correct `-params-file` chain (Step 3), show it to the scientist before execution (Step 4), and update state only after confirmed success (Step 7).
-- **Human eDNA scientists** — read this document as a workflow guide. The `## When to Use` / `## Do NOT use` sections explain *why* the verdict gate exists (no compute without validated inputs), *why* the command must be shown before execution (mistakes cost hours of Nextflow runtime), and *why* `pipeline_state.json` is the source of truth for resumability.
+- **AI Coding Agents** — read `pipeline_state.json`, enforce the verdict gate (SP1), determine the next stage, construct commands from the recipe tables, show them to the scientist, execute under `pixi run --manifest-path env/{stage}/pixi.toml …`, and update state only after verified success.
+- **Human eDNA scientists** — use the recipe tables to run stages manually.
 
 ## When to Use This Skill
 
-Use this skill when you need to:
-
-- **Continue** an existing eDNA run whose `pipeline_state.json` exists (verdict ≥ `GO-WITH-WARNINGS`).
-- **Run one or more pipeline stages** (`qc`, `denoise`, `classify`, `diversity`, `association`) with the correct `-params-file` chain.
-- **Resume** a partially-completed run via Nextflow's `-resume` (caches from prior stages are reused).
-- **Update `pipeline_state.json`** after each successful stage so the next invocation knows where to pick up.
+- **Continue** a run whose `pipeline_state.json` exists (verdict ≥ `GO-WITH-WARNINGS`).
+- Run one or more stages (`qc`, `denoise`, `classify`, `diversity`, `association`) with the correct tool chain.
+- **Resume**: every stage is idempotent; rerun safely after fixing a parameter.
 
 ## Do NOT use this skill
 
-- If there is **no `pipeline_state.json`** for the run → invoke `preflight/edna-intake` first. This sub-skill refuses to run without intake-completed state (SP1).
-- If the upstream intake verdict is **`NO-GO`** → fix the failing evidence item in `pipeline_state.json.evidence` first, then re-run intake.
-- If you want to **interpret already-completed results** → invoke `interpret/edna-interpret` instead.
-- If you want to **change the marker gene or presets mid-run** → this requires a new intake (a new `run_id`); do not edit `pipeline_state.json` by hand.
-- If you only want to **look at the Nextflow log** → use `tail -f .nextflow.log` directly, no skill needed.
+- If there is **no `pipeline_state.json`** → invoke `preflight/edna-intake` first (SP1 refuses without it).
+- If the intake verdict is **`NO-GO`** → fix the failing evidence item first.
+- If results are **complete and classified** and you only want reporting → `interpret/edna-interpret`.
 
 ## 0. Inputs / Outputs contract
 
@@ -49,256 +41,303 @@ Use this skill when you need to:
 
 | Path | Source | Required? | Notes |
 | --- | --- | --- | --- |
-| `results/{run_id}/pipeline_state.json` | `preflight/edna-intake` | yes | Must exist with `verdict ∈ {GO, GO-WITH-WARNINGS}`. The `pipeline`, `marker`, `completed_stages`, `last_stage` fields drive stage routing. |
-| `results/{run_id}/params.json` | `preflight/edna-intake` | yes | The run-specific parameter overrides; merged on top of `runners/nextflow-runner/params/{marker}.json` via a second `-params-file`. |
-| `runners/nextflow-runner/params/{marker}.json` (16s / 18s-v9 / coi / 12s) | this skill (skill-bundled) | yes | The marker-specific preset; passed as the FIRST `-params-file` so user overrides win. |
+| `results/{run_id}/pipeline_state.json` | `preflight/edna-intake` | yes | Verdict ∈ {GO, GO-WITH-WARNINGS} gates all execution |
+| `results/{run_id}/params.json` | `preflight/edna-intake` | yes | Preset + run-specific values **merged into one JSON at intake** |
+| `params/{marker}.json` | skill-bundled preset | yes (input to the intake merge) | Marker-specific lengths/kingdoms/levels |
 
 ### Outputs (produced)
 
-| Path | Format | Owner | Notes |
-| --- | --- | --- | --- |
-| `results/{run_id}/pipeline_state.json` | JSON (updated) | this skill | After each successful stage: extend `completed_stages`, update `last_stage`, append new paths to `outputs`. **Never** update on failure (Step 7 invariant). |
-| `results/{run_id}/run_summary.json` | JSON | `bin/summarise_run.py` (invoked by this skill) | Compact, LLM-loadable summary of the full run — read by `interpret/edna-interpret`. Written when `association` completes (Step 8). |
-| `results/{run_id}/{stage}_output/...` | per-stage outputs | Nextflow pipeline | Stage-specific outputs (trimmed FASTQs, ASV tables, taxonomy files, diversity metrics, DAA results). |
+| Path | Owner | Notes |
+| --- | --- | --- |
+| `results/{run_id}/qc/trimmed/<sample>/` | this skill | cutadapt primer-trimmed FASTQs |
+| `results/{run_id}/qc/fastqc/<sample>/` | this skill | FastQC reports (raw + trimmed) |
+| `results/{run_id}/denoise/` | this skill | merged reads + per-sample ASVs |
+| `results/{run_id}/asv_table/` | this skill | merged table, decontam + filter outputs |
+| `results/{run_id}/taxonomy/` | this skill | IDTAXA outputs + `agglomerated_data/` rank tables |
+| `results/{run_id}/diversity/` | this skill | tree + alpha + beta + community typing |
+| `results/{run_id}/association/` | this skill | DAA + correlations |
+| `results/{run_id}/pipeline_state.json` | updated | completed_stages/last_stage only after verified success |
+| `results/{run_id}/run_summary.json` | `bin/summarise_run.py` | written when association completes |
 
 ### Verdict gate enforcement
 
-Before constructing any command, **read `pipeline_state.json.verdict`**. If `NO-GO` or missing → SP1 fires (refuse to execute). If `GO-WITH-WARNINGS` → one confirmation prompt ("verdict is GO-WITH-WARNINGS — continue?") before Step 3.
+Before constructing any command, read `pipeline_state.json.verdict`. `NO-GO`/missing → SP1 (refuse). `GO-WITH-WARNINGS` → one confirmation prompt before Step 3.
 
 ## 0.5 Ask-User Stop Points
 
-This sub-skill has **4 stop points** (SP1–SP4). Each fires only when the evidence is ambiguous. The format is **Evidence + Recommend + Options**.
+### SP1 — Verdict gate fails
 
-### SP1 — Pre-flight verdict gate fails
-
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
-| `pipeline_state.json` missing OR its `verdict` field is `NO-GO` OR `verdict` field missing | The intake gate has not been passed | Hard-stop: "I see no `pipeline_state.json` for run `{run_id}` (or its verdict is `NO-GO`). Invoke `preflight/edna-intake` first." |
-| `pipeline_state.json.verdict == GO-WITH-WARNINGS` | Some evidence items had warnings | Ask: "Verdict is `GO-WITH-WARNINGS` (`<failing evidence items>`). Pick: (A) continue anyway (the warnings are acceptable), (B) re-run intake to fix the warnings (recommended), (C) abort" |
-
-**Auto-pick when**: `verdict == GO`. No ask.
+| Trigger | Action |
+| --- | --- |
+| `pipeline_state.json` missing / `verdict: NO-GO` / missing verdict | Hard-stop: "I see no `pipeline_state.json` for run `{run_id}` (or verdict is `NO-GO`). Invoke `preflight/edna-intake` first." |
+| `verdict == GO-WITH-WARNINGS` | Ask: "Verdict is `GO-WITH-WARNINGS` (`<items>`). Pick: (A) continue anyway, (B) re-run intake, (C) abort". Auto-pick: `verdict == GO`. |
 
 ### SP2 — Pipeline-state schema mismatch
 
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
-| `pipeline` field is not `nf-edna`, OR `marker` field is missing or not one of `16s / 18s-v9 / coi / 12s` | State belongs to a different skill or was corrupted | Ask: "State at `<path>` doesn't look like nf-edna intake (missing `pipeline: nf-edna` or `marker` is `<X>`). Pick: (A) it's an unrelated run — I'll give you the correct `run_id`, (B) it's nf-edna with a typo in `marker` — I'll fix it (only safe if it's a typo, not a marker change), (C) abort" |
+`pipeline != "edna-agent"` OR `marker ∉ {16s, 18s-v9, coi, 12s}` → ask: "(A) unrelated run — give correct run_id, (B) typo — I fix it, (C) abort". Auto-pick: `pipeline ∈ {"edna-agent", "nf-edna"}` — v1.1.x-era state files carry `pipeline: "nf-edna"` and remain valid inputs (the stage recipes are unchanged).
 
-**Auto-pick when**: `pipeline == "nf-edna"` AND `marker ∈ {16s, 18s-v9, coi, 12s}`. No ask.
+### SP3 — Stage failure choice
 
-### SP3 — Failure-handling choice
-
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
-| A Nextflow process exited non-zero OR `ERROR` / `FAILED` appeared in `.nextflow.log` | A stage genuinely failed | Ask: "`<stage>` failed with `<excerpt>`. Pick: (A) **retry** — adjust a parameter in `params.json` and rerun with `-resume` (tell me which), (B) **skip** this stage and continue with the next (record the skip in the report), (C) **abort** this run (state is preserved, resumable later)" |
-
-**Auto-pick when**: stage succeeded. No ask.
+A stage command exits non-zero → Ask: "`<stage>` failed with `<excerpt>`. Pick: (A) **retry** — adjust a merged param (tell me which) and rerun, (B) **skip** this stage (recorded in the report; never added to completed_stages), (C) **abort** (state preserved)". Auto-pick when the stage succeeds: no ask.
 
 ### SP4 — Resume-from-stage ambiguity
 
-| Trigger | Evidence check | Action |
-| --- | --- | --- |
-| `completed_stages` has ≥ 2 entries, AND user did not specify "next stage only" / "all remaining" | Multiple valid resumptions | Ask: "I see `<N>` stages already complete (`<list>`). Pick: (A) run only the **next** stage (incremental), (B) run **all remaining** stages (full pipeline from current point), (C) run a **specific** stage from the entry-point table (tell me which)" |
-
-**Auto-pick when**: `completed_stages` has ≤ 1 entry AND user said "continue" (default: next stage only). No ask.
+`completed_stages` ≥ 2 entries AND user did not specify → Ask: "I see `<N>` stages complete. Pick: (A) only the **next** stage, (B) **all remaining** stages, (C) a specific stage". Auto-pick (≤1 entry + "continue"): next stage only.
 
 ### Operating rule
 
-> **Auto-pick when the evidence is unambiguous; ask when the agent genuinely cannot decide.** When asking, present the evidence first, then the recommendation, then 2–4 concrete options. Do not ask "what do you want?" — ask "I see X, recommend Y, which one of A/B/C?"
+> **Auto-pick when the evidence is unambiguous; ask when the agent genuinely cannot decide.** Evidence + Recommend + Options.
 
 ## Description
 
-You are the pipeline execution agent for an eDNA metabarcoding analysis. Your job is to read the current `pipeline_state.json`, determine what to run next, show the scientist the exact command, and execute it after confirmation.
+You are the pipeline execution agent. Read the current `pipeline_state.json`, determine what to run next, show the exact commands, execute after confirmation, verify outputs, and update state.
 
-## Prerequisites
+## Stage ladder
 
-- **Environment**: `nextflow ≥ 23.10.0` and `pixi` on PATH (already validated by `preflight/edna-intake` evidence item E5).
-- **Upstream evidence**: `results/{run_id}/pipeline_state.json` with verdict ≥ `GO-WITH-WARNINGS` (SP1).
-- **User-provided inputs**: `run_id` (gathered in Step 1 below); optionally a stage choice (incremental / all / specific).
+| `last_stage`  | Next stage |
+|---------------|------------|
+| `intake`      | `qc` |
+| `qc`          | `denoise` |
+| `denoise`     | `classify` |
+| `classify`    | `diversity` |
+| `diversity`   | `association` |
+| `association` | complete → `bin/summarise_run.py` → `interpret/edna-interpret` |
 
 ## Procedure
 
 ### Step 1 — Locate the run
 
-Ask if not already stated:
+Read `results/{run_id}/pipeline_state.json`. Enforce SP1. Auto-detect schema (SP2).
 
-> "What is the `run_id` for this run?"
+### Step 2 — Determine the next stage
 
-Read `results/{run_id}/pipeline_state.json`. **Enforce the verdict gate (SP1)**: if missing, `NO-GO`, or `verdict < GO-WITH-WARNINGS` → refuse to proceed.
+From `last_stage` / `completed_stages` via the stage ladder. SP4 fires if ambiguous.
 
-> "No pipeline_state.json found for run `{run_id}` (or verdict is `NO-GO`). Please run `preflight/edna-intake` first."
+### Step 3 — Construct the commands from the recipe tables
 
-### Step 2 — Determine what to run
+Variables (from merged params.json): `$S` = sample-id column set of the manifest; `$P` = merged params; per stage `ENV[stage] = pixi run --manifest-path <skill-root>/env/<stage>/pixi.toml`. Show every command (Step 4 invariant) before running.
 
-From `pipeline_state.json`:
-- `pipeline`: pipeline directory to use (always `nf-edna` for this skill — SP2 enforces the schema)
-- `marker`: which preset file to pass via `-params-file` in addition to the run's `params.json` (`16s.json`, `18s-v9.json`, `coi.json`, or `12s.json`, matched by lowercasing/normalizing `marker`)
-- `completed_stages`: what has already run
-- `last_stage`: last completed stage
+#### Stage `qc` — primer trim (cutadapt) + FastQC
 
-Determine the next stage(s):
+For each sample `sid` with raw R1/R2:
 
-| `last_stage`   | Next stage to run |
-|----------------|-------------------|
-| `intake`       | `qc` (entry: default workflow or QC_ONLY) |
-| `qc`           | `denoise` (entry: DENOISE_ONLY) |
-| `denoise`      | `classify` (entry: CLASSIFY_ONLY) |
-| `classify`     | `diversity` (entry: DIVERSITY_ONLY) |
-| `diversity`    | `association` (full default workflow) |
-| `association`  | All stages complete — suggest `interpret/edna-interpret` |
-
-If `completed_stages` has ≥ 2 entries, SP4 fires (ask user incremental vs full vs specific). Otherwise, default to "next stage only".
-
-Note: Entry points `QC_ONLY`, `DENOISE_ONLY`, `CLASSIFY_ONLY`, `DIVERSITY_ONLY` each run all stages from the beginning up to and including that stage (they are cumulative, not isolated). To run from a mid-point, the pipeline must be run with `-resume` so Nextflow reuses cached work from prior stages.
-
-### Step 3 — Construct the command
-
-Determine:
-- `PIPELINE_DIR`: `.` (the current skill root — the pipeline is flattened at skill root since v1.0.0)
-- `MARKER_PRESET`: `runners/nextflow-runner/params/{16s|18s-v9|coi|12s}.json` inside the skill root, chosen from `pipeline_state.json`'s `marker` field
-- `PARAMS_FILE`: `results/{run_id}/params.json`
-- `ENTRY`: the Nextflow entry point workflow name (or omit for default full workflow)
-- `RESUME`: add `-resume` if any stages are already complete
-
-Note: `-params-file` accepts only one file. **Nextflow ≥ 24 rejects multiple `-params-file` flags** with `Can only specify option -params-file once` — the v1.0.0 body instructed this incorrectly. **Workaround:** merge `runners/nextflow-runner/params/{marker}.json` (preset) + `results/{run_id}/params.json` (run-specific overrides, last wins) into one JSON object, then pass a single `-params-file <merged>.json`. See signature-library entry for this.
-
-For running all remaining stages from the start:
 ```bash
-nextflow run . -params-file <merged_params.json> -resume
+ENV[qc] cutadapt --error-rate 0.1 --times 1 --overlap 3 --minimum-length ${P.min_length} \
+  -j ${N_CPU} -g ${P.primers_fwd} -G ${P.primers_rev} --discard-untrimmed \
+  -o results/${RUN_ID}/qc/trimmed/${sid}/${sid}_R1.trimmed.fastq.gz \
+  -p results/${RUN_ID}/qc/trimmed/${sid}/${sid}_R2.trimmed.fastq.gz \
+  ${r1} ${r2}
+
+ENV[qc] fastqc -t ${N_CPU} -q -o results/${RUN_ID}/qc/fastqc/${sid} ${r1} ${r2} <trimmed R1> <trimmed R2>
 ```
 
-For running up to a specific stage:
+Notes: `--maximum-length` is intentionally NOT passed — for short amplicons (MiFish 12S, ~170 bp on 251 bp MiSeq reads) read-through produces ~225 bp merged-length reads and a length cap would kill them pre-merge (v1.1.0 battle-test Finding 2). Verify: every sample dir has both trimmed FASTQs, non-empty; capture cutadapt's retention per sample.
+
+#### Stage `denoise` — merge + UNOISE3 + decontam + filter
+
+Per sample, from the trimmed pair:
+
 ```bash
-nextflow run . -entry {ENTRY_POINT} -params-file <merged_params.json> -resume
+ENV[denoise] NGmerge -1 <R1.trimmed> -2 <R2.trimmed> -o results/${RUN_ID}/denoise/${sid}.merged.fastq.gz -z
+ENV[denoise] vsearch --fastx_uniques ${sid}.merged.fastq.gz --fastaout ${sid}.derep.fasta --sizeout --minuniquesize 2 --fastq_ascii 33
+ENV[denoise] vsearch --cluster_unoise ${sid}.derep.fasta --centroids ${sid}.sequences.fasta --biomout ${sid}.table.biom --minsize 2 --unoise_alpha 2.0
+ENV[denoise] biom convert -i ${sid}.table.biom -o ${sid}.table.tsv --to-tsv \
+  || printf '# Constructed from biom file\n#OTU ID\t%s\n' "${sid}" > ${sid}.table.tsv
 ```
 
-Entry point mapping:
-- Through QC only: `-entry QC_ONLY`
-- Through DENOISE: `-entry DENOISE_ONLY`
-- Through CLASSIFY: `-entry CLASSIFY_ONLY`
-- Through DIVERSITY: `-entry DIVERSITY_ONLY`
-- Full pipeline (all stages): omit `-entry` (uses default workflow)
+Then the merge/decontam chain once, after all samples:
 
-### Step 4 — Show command and wait for confirmation
+```bash
+ENV[denoise] Rscript bin/merge_tables.R --input_files <all *.table.tsv> --output_table feature-table.tsv
+awk 'BEGIN{FS=OFS="\t"} {gsub(/:/,"_",$1); print}' feature-table.tsv > feature-table_renamed.tsv
+cat <all *.sequences.fasta> > rep-seqs.fna; sed '/^>/s/:/_/g' rep-seqs.fna > rep-seqs_renamed.fna
 
-Display the full command and ask:
+ENV[decontam] julia bin/decontam.jl --feature_table feature-table_renamed.tsv \
+  --metadata ${P.metadata} --rep_seqs rep-seqs_renamed.fna \
+  --output_cleaned_table asv_table/decontam_asv_table.tsv --output_cleaned_rep_seqs asv_table/decontam_rep_seqs.fna \
+  --output_contaminants_summary asv_table/decontam_summary.tsv \
+  --threshold ${P.decontam_threshold} --neg_control_column ${P.neg_col}
 
-> "I will run:
->
-> ```bash
-> cd {SKILL_ROOT}
-> {nextflow command}
-> ```
->
-> Proceed? (yes / no / change a parameter)"
+ENV[decontam] julia bin/filter_table.jl --feature_table asv_table/decontam_asv_table.tsv \
+  --rep_seqs asv_table/decontam_rep_seqs.fna --metadata ${P.metadata} \
+  --filter_condition "is_negative == false" \
+  --output_table asv_table/filtered_asv_table.tsv --output_rep_seqs asv_table/filtered_rep_seqs.fna
+```
 
-If the scientist wants to change a parameter, update `results/{run_id}/params.json` accordingly and show the revised command.
+Notes: (1) FIRST USE of the decontam env requires its Julia deps: `ENV[decontam] julia -e 'using Pkg; Pkg.instantiate()'` — run once if ArgParse is missing; (2) empty per-sample tables ARE expected (samples with no ASVs are skipped by merge_tables.R with a warning); (3) the julia filter accepts QIIME2-style TRUE/FALSE strings.
 
-Do not execute until the scientist confirms.
+#### Stage `classify` — IDTAXA + confidence filter + agglomeration
 
-### Step 5 — Execute and monitor
+```bash
+sed 's/;size=[0-9]*//' asv_table/filtered_rep_seqs.fna > taxonomy/rep_seqs_clean.fna
 
-Run the command using the Bash tool. Stream output as it runs.
+ENV[classification] Rscript bin/idtaxa_rds.R --query_sequences taxonomy/rep_seqs_clean.fna \
+  --idtaxa_model ${P.idtaxa_model} \
+  --output_classification taxonomy/idtaxa_classification.tsv \
+  --output_confidence taxonomy/idtaxa_confidence.tsv
 
-Watch for:
-- `Launching` — pipeline started
-- `[xx/xxxxxx] process > WORKFLOW:process_name` — stage progress
-- `Completed at:` — successful completion
-- `ERROR` or `FAILED` — failure (trigger SP3)
+ENV[decontam] julia bin/filter_idtaxa_by_confidence.jl \
+  --classification_file taxonomy/idtaxa_classification.tsv --confidence_file taxonomy/idtaxa_confidence.tsv \
+  --output_file taxonomy/idtaxa_classification_confident.tsv --threshold ${P.idtaxa_threshold}
 
-Report progress to the scientist as stages complete:
-> "✓ QC complete (188/200 reads survived trimming)"
-> "✓ DENOISE complete (47 ASVs across 3 samples)"
+ENV[classification] Rscript bin/agglomerate_data.R \
+  --asv_counts_file asv_table/filtered_asv_table.tsv \
+  --taxonomy_file taxonomy/idtaxa_classification_confident.tsv \
+  --metadata_file ${P.metadata} --output_dir taxonomy/agglomerated_data \
+  --kingdoms ${P.kingdoms} --ranks ${P.target_ranks}
+
+tail -n +2 taxonomy/agglomerated_data/asv_counts.tsv | awk '{print $1}' > taxonomy/asv_ids_to_keep.txt
+sed 's/;size=[0-9]*//' asv_table/filtered_rep_seqs.fna > taxonomy/rep_seqs_clean.fna   # (idempotent)
+ENV[classification] seqtk subseq taxonomy/rep_seqs_clean.fna taxonomy/asv_ids_to_keep.txt > taxonomy/filtered_asvs.fna
+```
+
+Notes: (1) `bin/idtaxa_rds.R` loads standard RDS, gzipped RDS, and XZ/RDX3 DECIPHER trainingFiles automatically; (2) `--kingdoms` filtering happens inside agglomerate — for **mitochondrial markers (12S/COI) the superkingdom is `unassigned`**, so the preset ships `kingdoms: "all"` (pass anything else and ALL ASVs are dropped); (3) pass rank levels in the exact case used by the taxonomy columns (`genus`, `species`).
+
+#### Stage `diversity` — tree + alpha + beta + community typing
+
+```bash
+mkdir -p diversity/phylogenetic_tree diversity/alpha diversity/beta
+ENV[diversity] mafft --thread ${N_CPU} --auto taxonomy/filtered_asvs.fna > diversity/phylogenetic_tree/aligned-rep-seqs.fna
+ENV[diversity] fasttree -nt -gtr diversity/phylogenetic_tree/aligned-rep-seqs.fna > diversity/phylogenetic_tree/unrooted-tree.nwk
+ENV[diversity] Rscript bin/root_tree.R --input_tree diversity/phylogenetic_tree/unrooted-tree.nwk \
+  --output_tree diversity/phylogenetic_tree/rooted-tree.nwk
+
+ENV[diversity] Rscript bin/alpha_diversity.R --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
+  --input_metadata ${P.metadata} --input_tree diversity/phylogenetic_tree/rooted-tree.nwk \
+  --grouping_variable "${P.grouping_variable}" --output_dir diversity/alpha
+
+ENV[diversity] Rscript bin/beta_diversity.R --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
+  --input_asv_taxonomy taxonomy/agglomerated_data/asv_taxonomy.tsv --input_metadata ${P.metadata} \
+  --input_tree diversity/phylogenetic_tree/rooted-tree.nwk \
+  --grouping_variable "${P.grouping_variable}" --distance_metric "${P.distance_metric:-bray}" \
+  --output_dir diversity/beta
+
+ENV[diversity] Rscript bin/community_typing.R --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
+  --input_metadata ${P.metadata} --clustering_method "${P.clustering_method:-ward.D2}" \
+  --output_dir diversity/beta        # do NOT pass --num_clusters with an empty string
+```
+
+#### Stage `association` — differential abundance + correlations
+
+```bash
+mkdir -p association/differential_abundance association/correlation
+
+ENV[association] Rscript bin/differential_abundance.R \
+  --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
+  --input_asv_taxonomy taxonomy/agglomerated_data/asv_taxonomy.tsv \
+  --input_metadata ${P.metadata} --output_dir association/differential_abundance \
+  --level_to_analyze "genus" --fixed_effect_variable "${P.grouping_variable}" \
+  --top_n_taxa_plot ${P.top_n_taxa_plot:-20} --reference_level "${P.reference_level}"
+# NOTE: rank is matched case-insensitively by correlation_analysis.R but case-SENSITIVELY
+# by differential_abundance.R — pass lowercase ("genus"/"species") until fixed upstream.
+
+cp association/differential_abundance/Maaslin2_all_results.tsv \
+   association/differential_abundance/differential_abundance_results.tsv
+
+ENV[association] Rscript bin/correlation_analysis.R \
+  --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
+  --input_asv_taxonomy taxonomy/agglomerated_data/asv_taxonomy.tsv \
+  --input_metadata ${P.metadata} --input_alpha_diversity diversity/alpha/alpha_diversity_metrics.tsv \
+  --fixed_effect_variable "${P.grouping_variable}" --metadata_numeric_variables "${P.metadata_numeric_variables}" \
+  --level_to_analyze "Genus" --output_dir association/correlation/correlation_analysis_genus
+ENV[association] Rscript bin/correlation_analysis.R  ...same... --level_to_analyze "Family" \
+  --output_dir association/correlation/correlation_analysis_family
+```
+
+### Step 4 — Show commands and wait for confirmation
+
+Display the full command chain and ask: "Proceed? (yes / no / change a parameter)". If a parameter changes, update `results/{run_id}/params.json` (the intake-merged file), re-merge if the preset base changed, and show revised commands. Do not execute until confirmed.
+
+### Step 5 — Execute and verify
+
+Run each stage's commands (Bash tool). After each stage, verify outputs BEFORE updating state — per stage:
+
+| Stage | Verify |
+| --- | --- |
+| qc | every sample dir has `*_R1/_R2.trimmed.fastq.gz` non-empty; record cutadapt retention % |
+| denoise | `asv_table/filtered_asv_table.tsv` + `filtered_rep_seqs.fna` exist non-trivial |
+| classify | `taxonomy/agglomerated_data/asv_counts.tsv` has ≥ 1 sample column |
+| diversity | `diversity/alpha/alpha_diversity_metrics.tsv` + `diversity/beta/permanova_results.tsv` exist |
+| association | `association/differential_abundance/differential_abundance_results.tsv` exists |
+
+Report progress: "✓ QC complete (retention 93%)"; "✓ DENOISE complete (2,719 ASVs / 7 samples)".
 
 ### Step 6 — Handle failures (SP3)
 
-If a process fails (non-zero exit, ERROR in log):
-
-1. Extract the relevant log excerpt:
-```bash
-grep -A 20 "ERROR\|FAILED\|Command exit" .nextflow.log | tail -40
-```
-
-2. Explain the likely cause in plain language. Common signatures are listed in the **Signature library** section below.
-
-3. Present SP3's three options to the scientist (retry / skip / abort).
-
-4. Do **not** update `pipeline_state.json` for a failed stage (invariant).
-
-If retrying: update `results/{run_id}/params.json` with the new parameter value, then go back to Step 4.
-
-If skipping: note the skipped stage in your response to the scientist and proceed to the next stage. Do not add the skipped stage to `completed_stages`.
-
-If aborting: tell the scientist the run state is preserved and can be resumed later by re-running `run/edna-run` with the same `run_id`.
+Extract the failing command's stderr (kept under `results/{run_id}/<stage>_run.log`), explain the cause in plain language (signature library below), present the three options. Never update state on failure.
 
 ### Step 7 — Update state on success
 
-After each stage completes successfully, read the current `pipeline_state.json` and write an updated version with:
-- `completed_stages` extended by the newly completed stage(s)
-- `last_stage` set to the most recently completed stage
-- `outputs` updated with paths to new outputs
+Extend `completed_stages`, set `last_stage`, append output paths to `outputs` in `pipeline_state.json`. Never on failure.
 
-Use the Write tool to overwrite `results/{run_id}/pipeline_state.json`.
+### Step 8 — Generate the run summary
 
-### Step 8 — Generate run summary
-
-When all stages are complete (or when `association` is the last completed stage), generate the AI-readable run summary:
+When `association` completes (or the scientist stops early after `classify`):
 
 ```bash
-python3 bin/summarise_run.py \
-  --results_dir results \
-  --run_id {run_id}
+python3 bin/summarise_run.py --results_dir results --run_id ${RUN_ID} --manifest <manifest.csv>
 ```
 
-This writes `results/{run_id}/run_summary.json`, which pre-compiles all statistics (read flow, ASV counts, taxonomy, top taxa, alpha/beta diversity, DA, correlations, blank QC warnings) into a single compact file used by `interpret/edna-interpret`.
+Writes `results/{run_id}/run_summary.json` (read-flow incl. raw counts, blank QC, ASV counts, taxonomy rates, top taxa, diversity, DAA, correlations).
 
-If the script is not present at that path, look for it at `results/summarise_run.py` (older runs may still have a local copy).
+NOTE for runs with a changed marker classification: summariser reads canonical names (`taxonomy/idtaxa_classification_confident.tsv`, `taxonomy/agglomerated_data/…`, `association/differential_abundance/differential_abundance_results.tsv`). If you used non-canonical names, reconcile them (copy/rename) before summarising.
 
 ### Step 9 — Hand off
 
-When all requested stages are complete:
+> "Pipeline complete through `{last_stage}`. Completed: {completed_stages}. Run summary: `results/{run_id}/run_summary.json`. To interpret: `interpret/edna-interpret`."
 
-> "Pipeline complete through `{last_stage}`.
-> Completed stages: {completed_stages}
->
-> Run summary written to `results/{run_id}/run_summary.json`.
-> To interpret results: `interpret/edna-interpret`"
+## Marker-sanity check (run between DENOISE and CLASSIFY — strongly recommended)
 
-If only some stages were requested and more remain:
-> "`{last_stage}` complete. Run `run/edna-run` again to continue with the next stage, or `interpret/edna-interpret` if you want to review results so far."
+The round-2 battle-test's central real-data lesson: primer sites being present on reads (96%) does NOT prove the amplicon is the intended marker (0/2,719 ASVs matched the intended 12S reference). Before running `classify`, run a cheap sanity classification of a small ASV sample against the intended marker's reference:
+
+```bash
+head -1000 taxonomy/rep_seqs_clean.fna > /tmp/sanity_asvs.fna      # ~200 ASVs
+ENV[denoise] vsearch --usearch_global /tmp/sanity_asvs.fna \
+  --db ${MARKER_REFERENCE} --id 0.80 --query_cov 0.8 --target_cov 0.6 \
+  --userout /tmp/sanity_hits.tsv --userfields query+target+id
+# 0 hits → WARN loudly before CLASSIFY: "marker assumption may be wrong" (ask user; see SKILL.md F10)
+```
+
+If the marker reference is unsuited to the primer pair (e.g., reference amplicons don't span the primer sites), the check itself reports 0 and the correct response is to **re-source or re-train the reference** (chain `reference-db/` → `idtaxa-training/`) — treat "0 sanity hits" as evidence for either a wrong marker OR an unsuitable reference, and ask the scientist which.
 
 ## Troubleshooting — Signature library
 
 | Signature in stderr / log | Likely cause | Suggested fix |
 | --- | --- | --- |
-| `cutadapt: adapter not found / primer not found in reads` | Primer sequence is wrong, or orientation flipped | Verify primer sequences against the source publication; pass `--primer_mismatch_rate 0.2` to tolerate degenerate bases |
-| **Pipeline produced ASVs but species assignments look like Bacteria / Archaea when the dataset should be fish/vertebrate** | **Marker mis-assigned — the 6-mer `TCGGT` at R1 5' is ambiguous between 16S V3 interior and MiFish-U forward primer. Auto-picked 16S without checking R2 reverse primer.** | **Re-run preflight with explicit marker = `12S`. Spot-check: R2 should start with `CATAGTGGGGTATCTAATCCCAGTTTG` (MiFish-U reverse). The lesson: always confirm R2 reverse primer before assigning a marker.** See Finding 0 in `battle-test-report.md` for the AZAM_NSPSF case. |
-| `NGmerge: paired reads failed merge (insert size too small)` | Insert size < 30 bp, or reads are actually single-end not paired | Check `read1/read2-filepath` in manifest; if reads are SE, set `paired: false` in `params.json` and run with `-entry QC_ONLY` to start over |
-| `VSEARCH: no reads survive dereplication` | Too few reads, or `min_length` is too stringent | Lower `min_length` by 20–30 bp; verify the input FASTQ actually has reads (some pipelines produce empty outputs upstream) |
-| `IDTAXA: model file is corrupt or wrong format` | The `.rds` file wasn't saved with `saveRDS()`, or training script aborted | Retrain with `bin/train_idtaxa_model.R --input <fasta> --taxonomy <headers.tsv> --output <model.rds>` |
-| `R script: package 'X' is not available` | pixi env for that stage didn't include the R package | Run `pixi add --manifest-path env/{stage}/pixi.toml r-X` then re-run with `-resume` |
-| `decontam.jl: neg_col 'is_negative' not found in metadata` | Metadata column-name mismatch (case, separator) | Verify the metadata column name matches exactly: `head -1 metadata.tsv \| tr '\t' ',' \| grep -i negative` |
-| `No space left on device` (work dir) | Nextflow work/ filled the disk | Free ≥ 10 GB or move the run to a larger disk; partial work is preserved on `-resume` |
-| `nextflow: process cache invalidated` after `pixi add` | pixi env changes invalidate Nextflow's task hash | Run with `-resume` once to recover cached stages; new stages will recompute (expected) |
-| `ERROR ~ Command exit (code 137)` | OOM-killed (Linux) | The stage ran out of RAM; reduce `task.memory` in the corresponding module or split the run into smaller batches |
-| `Module not found: modules/X.nf` | Pipeline files were moved or the skill was deployed without the `modules/` dir | Verify `diff -rq @skills/nf-edna/ ~/.pi/agent/skills/nf-edna/` — the deploy copy should be md5-identical |
-| `Can only specify option -params-file once` | Nextflow ≥ 24 rejects multiple `-params-file` flags (the v1.0.0 body instructed this incorrectly) | Merge `runners/nextflow-runner/params/{marker}.json` + `results/{run_id}/params.json` into one JSON object before `-params-file <merged>.json`. Use Python: `merged = {**preset, **run_specific}` (last wins) |
-| `ERROR: Cannot find Java or it's a wrong version -- Java 8 or later (up to 22) is installed` | Nextflow hard cap of Java 22; sdkman `current` defaults to Java 25 (fails) | Set `JAVA_HOME` to a Java 21 install before running nextflow: `export JAVA_HOME=<path-to>/.sdkman/candidates/java/21.0.11-tem` (or any Java 8–22) |
-| `ERROR: LoadError: ArgumentError: Package ArgParse ... is required but does not seem to be installed` (DENOISE:decontam Julia process) | Julia env in `env/pixi.toml` is missing `ArgParse` and other deps — `Pkg.instantiate()` was never run | Add to `env/pixi.toml` `[dependencies]`: `julia-argparse = "*"` (or run `pixi run --manifest-path env/pixi.toml julia -e 'using Pkg; Pkg.add("ArgParse")'`) |
-| `Error in readRDS(model.rdata): unknown input format` (DENOISE:CLASSIFY) | The IDTAXA model file is in DECIPHER's RDX3 binary format (e.g., SILVA trainingFile) — base R `readRDS()` cannot decode it | As of v1.1.1, `bin/idtaxa_rds.R` auto-detects 3 formats: standard RDS, gzipped RDS, and **DECIPHER RDX3** (XZ- or gzip-compressed). It skips the 5-byte `RDX3\n` header and calls `unserialize()` to recover the `trainingSet`. The script also caches a converted `.converted.rds` next to the original. No user action needed — just re-run. |
+| `NGmerge: command not found` | denoise pixi env missing NGmerge (v1.1.5 regression, fixed v1.2.0) | `pixi add --manifest-path env/denoise/pixi.toml ngmerge` |
+| `cutadapt: adapter not found in reads` | wrong primer or orientation | check primer vs publication; loosen `--error-rate 0.15`; confirm marker via post-denoise sanity check |
+| `NGmerge: paired reads failed merge` | insert < 30 bp or SE data | check manifest read type |
+| `VSEARCH: no reads survive dereplication` | min_length too strict or empty upstream | lower min_length 20–30 bp; check cutadapt log |
+| `biom convert: file is empty / can't be parsed` | sample had 0 ASVs after UNOISE3 | expected — the `|| printf header` fallback writes a header-only TSV; merge_tables.R skips it with a warning |
+| `Package ArgParse is required but does not seem to be installed` (Julia) | decontam env not instantiated | `pixi run --manifest-path env/decontam/pixi.toml julia -e 'using Pkg; Pkg.instantiate()'` |
+| `parse(Bool, "FALSE")` style Julia failure | QIIME2 TRUE/FALSE strings in Bool columns | v1.2.0 filter_table.jl handles case-insensitively (fix verified 2026-08-19) |
+| `Incompatible join types: logical vs character` (R) | empty per-sample table merged | v1.2.0 merge_tables.R skips empty tables (verified) |
+| `object 'unifrac' is not exported by 'namespace:rbiom'` | mia 1.18 + rbiom 3.x incompatibility | pin `r-rbiom ==2.2.1` in env/{classification,diversity,association}; keep the opportunistic mia-load guards in the R scripts |
+| `could not find function "TreeSummarizedExperiment"` | mia loads via requireNamespace but TSE attach skipped | explicit `library(TreeSummarizedExperiment)` (present in v1.2.0 scripts) |
+| `rank matches a name at the wrong level` / `unexpected Parent` / `rank is missing the name` (LearnTaxa) | taxonomy-header defects: same taxon name at multiple ranks; shared gap-placeholder with inconsistent parents; binomial-split phantom genus when species' binomial genus ≠ header genus | lineage-uniquify header placeholders; prefer `LearnTaxa(seqs, groups)` (rank=NULL) on lineage-cleaned headers; or regenerate the reference FASTA via `idtaxa-training`'s prepare script with per-level placeholders |
+| `LearnTaxa` silently dies / exit 137 | OOM — DECIPHER training memory scales with total reference bases (full mitogenomes blow up) | train on in-silico-amplicon-length sequences; 1 record per unique species path; ~6-9k seqs fits a 14 GB box |
+| Classification output all-NA despite plausible model | `IdTaxa` default threshold (60, on 0–100 scale) + confidence's length dependence on short queries | pass `threshold` explicitly; compare query vs training length regime; prefer training sequences of similar length (in-silico amplicons) |
+| `PERMANOVA R2 = 1.0` with no F/p | one sample per group — degenerate model | expected with unreplicated grouping variables; report as such |
+| no DAA power (0/n significant) | reference level absent from counts (negatives pre-filtered), or 1 sample/group | pick a replicable reference_level at intake; SP: confirm |
+| `argument --num_clusters: invalid int value: ''` | pipeline default empty string passed as CLI arg | omit the flag (script auto-determines); never pass empty string |
+| `Taxonomic rank 'Genus' not found` (DAA) | case-sensitive rank match in differential_abundance.R (columns are lowercase) | pass lowercase ("genus"); upstream fix: case-insensitive match as in correlation_analysis.R |
+| `Removed 2719 ASVs with unassigned Kingdom. Remaining: 0` | kingdoms preset incompatible with mitochondrial references | use `kingdoms: "all"` for 12S/COI (preset fixed v1.2.0) |
+| summariser `AttributeError: NoneType … get` | section None in summary dict | guard fixed in v1.2.0 bin/summarise_run.py; rerun |
+| disk full in env resolution | per-stage pixi env resolution 1–3 GB | ≥ 10 GB free at results/ (E7) |
 
 ## Verification
 
-- [ ] `results/{run_id}/pipeline_state.json.verdict` was `GO` or `GO-WITH-WARNINGS` before any `nextflow run` command was constructed (SP1).
-- [ ] The exact `nextflow run` command was shown to the scientist and explicitly confirmed (Step 4 invariant).
-- [ ] `pipeline_state.json.completed_stages` was extended only after a stage succeeded (Step 7 invariant).
-- [ ] `pipeline_state.json.last_stage` matches the most recent successful entry.
-- [ ] When `last_stage == association`, `run_summary.json` was generated (Step 8).
+- [ ] `pipeline_state.json.verdict` was GO / GO-WITH-WARNINGS before any command (SP1)
+- [ ] The exact commands were shown to the scientist and confirmed (Step 4 invariant)
+- [ ] `completed_stages` extended only after verified outputs (Step 5 verify table)
+- [ ] `last_stage == association` → `run_summary.json` generated (Step 8)
+- [ ] Marker-sanity check ran (or was consciously skipped with a reason recorded)
 
 ## Invariants
 
-- **Never** execute a Nextflow command without showing it first and waiting for explicit confirmation.
-- **Never** update `pipeline_state.json` for a stage that failed.
-- **Always** use `-resume` when any prior stage has completed, so Nextflow reuses cached work.
-- **Always** pass the marker preset (`-params-file params/{marker}.json`) before the run's own `params.json`, so the run's values take precedence.
-- **Always** enforce the SP1 verdict gate before Step 3.
+- **Never** execute without showing the commands first.
+- **Never** update `pipeline_state.json` for a failed stage.
+- **Never** pass an empty string to numeric CLI args.
+- **Never** use capitalized rank arguments with `differential_abundance.R` until its match is case-insensitive.
+- **Always** merge preset + run params into one JSON at intake (single-`--params-file` era lesson, now simply single-file).
+- **Always** run the marker-sanity check unless the scientist explicitly declines (record the decline).

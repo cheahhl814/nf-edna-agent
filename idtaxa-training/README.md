@@ -13,11 +13,11 @@ Three end-to-end stages for training a DECIPHER IDTAXA classifier:
 2. **DECIPHER-format FASTA → trained `Taxa Train` model** via `bin/train_idtaxa_model.R`
    - Iterative `DECIPHER::LearnTaxa()` training with group pruning
    - Handles binomial species, missing-rank placeholders, batch NCBI accessions
-   - Saves via `saveRDS()` → standard RDS (loadable by downstream `nf-edna` without modification)
+   - Saves via `saveRDS()` → standard RDS (loadable by downstream `edna-agent` without modification)
 3. **Trained model + DECIPHER FASTA → species list + classification** via `bin/extract_scientific_names.jl` and `bin/idtaxa_rds.R`
    - Extracts one scientific name per sequence (for GBIF lookup)
    - Classifies a query FASTA against the trained model
-   - `bin/idtaxa_rds.R` auto-detects 3 model formats: standard RDS, gzipped RDS, XZ-/gzip-compressed DECIPHER RDX3 binary (carried over from `nf-edna` v1.1.1)
+   - `bin/idtaxa_rds.R` auto-detects 3 model formats: standard RDS, gzipped RDS, XZ-/gzip-compressed DECIPHER RDX3 binary (carried over from `edna-agent` v1.1.1)
 
 ## When to use
 
@@ -28,7 +28,7 @@ Use `idtaxa-training` when:
 - You have an **existing DECIPHER trainingFile** (e.g., SILVA `SILVA_SSU_r138.2.rdata`, 285 MB XZ-compressed) and want to classify queries against it without retraining.
 - You need a **species name list** from a DECIPHER-formatted FASTA (for downstream GBIF lookup or `eDNA-gbif-publish`).
 
-Do NOT use this skill if you already have a working `.rds` model and just want to run eDNA classification end-to-end — use `nf-edna` directly.
+Do NOT use this skill if you already have a working `.rds` model and just want to run eDNA classification end-to-end — use `edna-agent` directly.
 
 ## Where it fits
 
@@ -40,7 +40,7 @@ Do NOT use this skill if you already have a working `.rds` model and just want t
   .rds   │       │ DECIPHER FASTA + model
          ▼       ▼
    ┌──────────────────┐         ┌─────────────────┐
-   │     nf-edna      │ ──────▶ │ eDNA-visualize  │
+   │     edna-agent      │ ──────▶ │ eDNA-visualize  │
    │ (downstream      │         │ (publication    │
    │  classification) │         │  figures)       │
    └──────────────────┘         └─────────────────┘
@@ -83,7 +83,7 @@ idtaxa-training/
 
 ## Patched `bin/idtaxa_rds.R` — DECIPHER RDX3 + XZ support
 
-The `bin/idtaxa_rds.R` script is **patched** (carried over from `nf-edna` v1.1.1) to load three model formats via magic-byte sniffing:
+The `bin/idtaxa_rds.R` script is **patched** (carried over from `edna-agent` v1.1.1) to load three model formats via magic-byte sniffing:
 
 1. **Standard R RDS** (DECIPHER::IdTaxa output saved via `saveRDS`) — load via `readRDS()`
 2. **DECIPHER RDX3 binary format** (the SILVA trainingFile, gzip- or XZ-compressed) — skip 5-byte `RDX3\n` header, then `unserialize()`, extract `obj$trainingSet`
@@ -93,7 +93,7 @@ This means users can either train fresh models (always written as standard RDS) 
 
 ## Related skills
 
-- **nf-edna** (`~/.pi/agent/skills/nf-edna/`) — downstream: uses the trained `.rds` for production 16S/18S/COI/12S eDNA classification via Nextflow
+- **edna-agent** (`~/.pi/agent/skills/edna-agent/`) — downstream: uses the trained `.rds` for production 16S/18S/COI/12S eDNA classification via Nextflow
 - **eDNA-visualize** (`~/.pi/agent/skills/eDNA-visualize/`) — sibling: produces publication-ready figures from classification tables
 - **read-qc-trimming** (`~/.pi/agent/skills/read-qc-trimming/`) — upstream: pre-processes raw reads before classification
 - **edna-gbif-publish** (`~/.pi/agent/skills/edna-gbif-publish/`) — downstream: publishes classification results to GBIF

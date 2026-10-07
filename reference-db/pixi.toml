@@ -1,7 +1,7 @@
 [project]
 name = "reference-db"
 version = "1.0.0"
-description = "Curated catalog of reference-database direct-download URLs for the four nf-edna markers (16S, 18S-V9, COI, 12S) with workflows for retrieval and DECIPHER training."
+description = "Curated catalog of reference-database direct-download URLs for the four edna-agent markers (16S, 18S-V9, COI, 12S) with workflows for retrieval and DECIPHER training."
 authors = ["AIx-BIO"]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]

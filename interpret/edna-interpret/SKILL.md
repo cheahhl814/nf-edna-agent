@@ -1,8 +1,8 @@
 ---
 name: edna-interpret
-description: "Turn nf-edna pipeline outputs into a structured Markdown report and deep dive navigation plan, a plain-language narrative summary, and an interactive Q&A session. Refuses to interpret if upstream pipeline_state.json.completed_stages lacks 'classify'. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'interpret eDNA results', 'eDNA report', 'summarize eDNA run', 'eDNA Results section', 'eDNA diversity interpretation', 'eDNA differential abundance'."
-version: 1.1.5
-updated: "2026-10-05"
+description: "Turn edna-agent pipeline outputs into a structured Markdown report and deep dive navigation plan, a plain-language narrative summary, and an interactive Q&A session. Refuses to interpret if upstream pipeline_state.json.completed_stages lacks 'classify'. Has 4 explicit ask-user stop points (SP1–SP4) that fire only when evidence is ambiguous. Triggers: 'interpret eDNA results', 'eDNA report', 'summarize eDNA run', 'eDNA Results section', 'eDNA diversity interpretation', 'eDNA differential abundance'."
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "interpret eDNA results"
   - "eDNA report"
@@ -46,8 +46,8 @@ Use this skill when you need to:
 | Path                                   | Source                                             | Required?   | Notes                                                                                                                                                                                             |
 | -------------------------------------- | -------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `results/{run_id}/pipeline_state.json` | `run/edna-run`                                     | yes         | `completed_stages` must include `classify` (SP1 gate). Used for `run_id`, `marker`, `params_used`, `outputs`.                                                                                     |
-| `results/{run_id}/run_summary.json`    | `bin/summarise_run.py` (invoked by `run/edna-run`) | yes         | The compact LLM-loadable summary. Provides `read_flow`, `blank_qc`, `asv_counts`, `taxonomy`, `top_taxa`, `alpha_diversity`, `beta_diversity`, `differential_abundance`, `correlations`, `notes`. |
-| `results/{run_id}/{stage}_output/...`  | Nextflow pipeline                                  | conditional | Read on-demand for detail not captured in the summary (full ASV lists, raw correlation tables, individual PDFs).                                                                                  |
+| `results/{run_id}/run_summary.json`    | `bin/summarise_run.py` (run step 8) | yes         | The compact LLM-loadable summary. Provides `read_flow`, `blank_qc`, `asv_counts`, `taxonomy`, `top_taxa`, `alpha_diversity`, `beta_diversity`, `differential_abundance`, `correlations`, `notes`. |
+| `results/{run_id}/{stage}/...`        | agent-driven stage outputs (run/edna-run)          | conditional | Read on-demand for detail not captured in the summary (full ASV lists, raw correlation tables, individual PDFs).                                                                                  |
 
 ### Outputs (produced)
 

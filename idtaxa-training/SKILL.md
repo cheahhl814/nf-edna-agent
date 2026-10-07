@@ -1,8 +1,8 @@
 ---
 name: idtaxa-training
-description: End-to-end training of DECIPHER IDTAXA taxonomic-classification models from raw reference sequences. Wraps three stages — (1) NCBI FASTA → DECIPHER-format headers via `prepare_ncbi_fasta_for_idtaxa.R`, (2) DECIPHER-format FASTA → trained `Taxa Train` model via `train_idtaxa_model.R`, (3) trained model → species list + IDTAXA classification via `extract_scientific_names.jl` and the patched `idtaxa_rds.R` (which loads standard RDS, gzipped RDS, AND XZ-/gzip-compressed DECIPHER RDX3 binary files). Mirrors the BettaMt ask-user-stop-points pattern and the canonical `nf-edna` evidence chain. Use when the user asks to "train an IDTAXA model", "build a DECIPHER reference for X", "I have a 16S/18S/COI/12S FASTA, train a classifier", "IDTAXA from NCBI FASTA", "prepare reference for taxonomic classification", or "I need a SILVA/PR2/MitoFish replacement trained on my own sequences". Pairs with `nf-edna` (downstream classification) and `eDNA-visualize` (downstream figures).
-version: 1.1.5
-updated: "2026-10-05"
+description: End-to-end training of DECIPHER IDTAXA taxonomic-classification models from raw reference sequences. Wraps three stages — (1) NCBI FASTA → DECIPHER-format headers via `prepare_ncbi_fasta_for_idtaxa.R`, (2) DECIPHER-format FASTA → trained `Taxa Train` model via `train_idtaxa_model.R`, (3) trained model → species list + IDTAXA classification via `extract_scientific_names.jl` and the patched `idtaxa_rds.R` (which loads standard RDS, gzipped RDS, AND XZ-/gzip-compressed DECIPHER RDX3 binary files). Mirrors the BettaMt ask-user-stop-points pattern and the canonical `edna-agent` evidence chain. Use when the user asks to "train an IDTAXA model", "build a DECIPHER reference for X", "I have a 16S/18S/COI/12S FASTA, train a classifier", "IDTAXA from NCBI FASTA", "prepare reference for taxonomic classification", or "I need a SILVA/PR2/MitoFish replacement trained on my own sequences". Pairs with `edna-agent` (downstream classification) and `eDNA-visualize` (downstream figures).
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "train IDTAXA model"
   - "build DECIPHER reference"
@@ -29,7 +29,7 @@ requires:
 
 # Sub-Skill: idtaxa-training
 
-> **v1.0.0.** Wraps three end-to-end stages for training a DECIPHER IDTAXA classifier from raw reference sequences: (1) NCBI FASTA → DECIPHER-format headers, (2) DECIPHER-format FASTA → trained `Taxa Train` model, (3) trained model + DECIPHER FASTA → species list + IDTAXA classification. Includes a patched `bin/idtaxa_rds.R` (carried over from `nf-edna` v1.1.1) that auto-detects standard RDS, gzipped RDS, AND XZ-/gzip-compressed DECIPHER RDX3 binary format — so users can either train fresh models (standard RDS output via `train_idtaxa_model.R`) or load existing DECIPHER trainingFiles (e.g., SILVA `SILVA_SSU_r138.2.rdata`) without modification.
+> **v1.0.0.** Wraps three end-to-end stages for training a DECIPHER IDTAXA classifier from raw reference sequences: (1) NCBI FASTA → DECIPHER-format headers, (2) DECIPHER-format FASTA → trained `Taxa Train` model, (3) trained model + DECIPHER FASTA → species list + IDTAXA classification. Includes a patched `bin/idtaxa_rds.R` (carried over from `edna-agent` v1.1.1) that auto-detects standard RDS, gzipped RDS, AND XZ-/gzip-compressed DECIPHER RDX3 binary format — so users can either train fresh models (standard RDS output via `train_idtaxa_model.R`) or load existing DECIPHER trainingFiles (e.g., SILVA `SILVA_SSU_r138.2.rdata`) without modification.
 >
 > **This SKILL.md is a router.** It does not duplicate logic from the sub-skills. Its job is to ask: *what stage is the user at, and which sub-skill should they invoke next?*
 
@@ -51,9 +51,9 @@ Use this sub-skill when you need to:
 
 **Do NOT use this skill** if:
 
-- You already have a working `.rds` model and just want to run eDNA classification end-to-end → use `nf-edna` directly.
-- You want a fully-managed Nextflow pipeline (this skill is script-based, single-machine, no DSL2) → use `nf-edna`.
-- You want to query an existing reference without modification → use `nf-edna` `classify.nf` with your model path.
+- You already have a working `.rds` model and just want to run eDNA classification end-to-end → use `edna-agent` directly.
+- You want a fully-managed Nextflow pipeline (this skill is script-based, single-machine, no DSL2) → use `edna-agent`.
+- You want to query an existing reference without modification → use `edna-agent` `classify.nf` with your model path.
 
 ## 0. Orchestrator — detect phase, route to the right sub-skill
 
@@ -201,19 +201,19 @@ Phases:
         trained .rds   │       │ DECIPHER FASTA + model
                        ▼       ▼
                  ┌──────────────────┐         ┌─────────────────┐
-                 │     nf-edna      │ ──────▶ │ eDNA-visualize  │
+                 │     edna-agent      │ ──────▶ │ eDNA-visualize  │
                  │ (downstream      │         │ (publication    │
                  │  classification) │         │  figures)       │
                  └──────────────────┘         └─────────────────┘
 ```
 
 - **Upstream**: requires raw reference FASTA (NCBI download, MitoFish export, custom reference).
-- **Downstream**: `nf-edna` consumes the trained `.rds` for production classification; `eDNA-visualize` consumes the resulting classification tables for figures.
+- **Downstream**: `edna-agent` consumes the trained `.rds` for production classification; `eDNA-visualize` consumes the resulting classification tables for figures.
 - **Parallel**: `eDNA-visualize` can also produce figures from any DECIPHER-format FASTA, regardless of whether `idtaxa-training` was used.
 
 ## 7. Patched `bin/idtaxa_rds.R` — DECIPHER RDX3 + XZ support
 
-The `bin/idtaxa_rds.R` script is **patched** (carried over from `nf-edna` v1.1.1) to load three model formats via magic-byte sniffing:
+The `bin/idtaxa_rds.R` script is **patched** (carried over from `edna-agent` v1.1.1) to load three model formats via magic-byte sniffing:
 
 1. **Standard R RDS** (DECIPHER::IdTaxa output saved via `saveRDS`) — load via `readRDS()`
 2. **DECIPHER RDX3 binary format** (the SILVA trainingFile, gzip- or XZ-compressed) — skip 5-byte `RDX3\n` header, then `unserialize()`, extract `obj$trainingSet`
@@ -221,7 +221,7 @@ The `bin/idtaxa_rds.R` script is **patched** (carried over from `nf-edna` v1.1.1
 
 This means users can either train fresh models (always written as standard RDS) or load existing DECIPHER trainingFiles (often RDX3) **without modification**.
 
-See `run/idtaxa-training-run/SKILL.md` §Troubleshooting — Signature library for the full rationale (Finding 7 in the upstream nf-edna signature library).
+See `run/idtaxa-training-run/SKILL.md` §Troubleshooting — Signature library for the full rationale (Finding 7 in the upstream edna-agent signature library).
 
 ## 8. Troubleshooting — Signature library
 
@@ -232,12 +232,13 @@ See `run/idtaxa-training-run/SKILL.md` §Troubleshooting — Signature library f
 | `LearnTaxa: No problem sequences remaining. Training converged.` | Training completed successfully | This is INFO, not an error. Move to Stage 3. |
 | `No sequences left after removing problem sequences. Training stopped.` | All sequences were flagged as "problem" — likely header format issue | Re-run `prepare_ncbi_fasta_for_idtaxa.R` to regenerate headers, or set `--allow_group_removal FALSE` to keep all sequences |
 | `R script: package 'DECIPHER' is not available` | pixi env for classification stage missing DECIPHER | Run `pixi add --manifest-path env/classification/pixi.toml r-decipher r-biostrings` |
+| trained model classifies poorly / sanity-check 0-hits with a plausible reference | in-silico amplicon reference polluted by 3'-primer spurious matches (amplicon-length filter missing: entries at 300-500+ bp are NOT primer-to-primer amplicons — v1.2.0 battle test found only 573/8,610 true-amplicon paths, median 168 bp vs polluted median 484 bp) | during amplicon extraction, filter to the true primer-to-primer length window (marker-specific, e.g. 140–260 bp for MiFish-U) BEFORE deduplication/training |
 | `Julia: Package ArgParse not found` (extract_scientific_names.jl) | Julia env missing ArgParse | Run `pixi run --manifest-path env/classification/pixi.toml julia -e 'using Pkg; Pkg.add("ArgParse")'` |
 | `IDTAXA trainingSet is not class 'Taxa Train'` | Wrong model file passed to `idtaxa_rds.R` | Confirm the model was produced by `train_idtaxa_model.R` (writes via `saveRDS`) or a DECIPHER trainingFile (.rdata) |
 
 ## 9. Related skills
 
-- **nf-edna** (`~/.pi/agent/skills/nf-edna/`) — downstream: uses the trained `.rds` for production 16S/18S/COI/12S eDNA classification via Nextflow
+- **edna-agent** (`~/.pi/agent/skills/edna-agent/`) — downstream: uses the trained `.rds` for production 16S/18S/COI/12S eDNA classification via Nextflow
 - **eDNA-visualize** (`~/.pi/agent/skills/eDNA-visualize/`) — sibling: produces publication-ready figures from classification tables
 - **read-qc-trimming** (`~/.pi/agent/skills/read-qc-trimming/`) — upstream: pre-processes raw reads before classification
 - **edna-gbif-publish** (`~/.pi/agent/skills/edna-gbif-publish/`) — downstream: publishes classification results to GBIF
@@ -253,4 +254,4 @@ See `run/idtaxa-training-run/SKILL.md` §Troubleshooting — Signature library f
 
 - **Never** invoke a stage script without showing the full command first and waiting for explicit confirmation.
 - **Never** skip the preflight sub-skill — its verdict gates the run sub-skill.
-- **Always** verify the trained `.rds` is standard RDS format (loadable via `readRDS()` directly) — not RDX3 — so it can be used by downstream `nf-edna` without special handling.
+- **Always** verify the trained `.rds` is standard RDS format (loadable via `readRDS()` directly) — not RDX3 — so it can be used by downstream `edna-agent` without special handling.

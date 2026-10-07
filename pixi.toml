@@ -1,7 +1,7 @@
 [project]
-name = "nf-edna"
-version = "1.1.1"
-description = "Agent orchestration of the nf-edna Nextflow DSL2 pipeline for environmental DNA metabarcoding analysis (16S, 18S-V9, COI, 12S markers)."
+name = "edna-agent"
+version = "1.2.0"
+description = "Agent-driven orchestration of eDNA metabarcoding analysis (16S, 18S-V9, COI, 12S markers) — intake → QC → denoise → classify → diversity → association → interpret, no workflow engine."
 authors = ["AIx-BIO"]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]
@@ -9,16 +9,13 @@ platforms = ["linux-64", "osx-64", "osx-arm64"]
 [dependencies]
 # Agent runtime — what the AI agent invokes directly. Per-stage tool
 # environments (cutadapt, NGmerge, VSEARCH, IDTAXA, R/Bioconductor, Julia)
-# live under env/{stage}/pixi.toml and are resolved by Nextflow via
+# live under env/{stage}/pixi.toml and are invoked via
 # `pixi run --manifest-path env/{stage}/pixi.toml ...`. The agent never
 # imports those tools into its own environment.
 
 # Core language runtimes
 python = ">=3.10"
 julia = ">=1.10"
-
-# Pipeline runner
-nextflow = ">=23.10.0"
 
 # LLM-friendly post-processing (used by bin/summarise_run.py)
 pandas = ">=2.0"
@@ -33,12 +30,10 @@ intake = "echo 'Run preflight/edna-intake — see SKILL.md §0'"
 run-stage = "echo 'Run run/edna-run — see SKILL.md §0'"
 interpret = "echo 'Run interpret/edna-interpret — see SKILL.md §0'"
 summarise = "python bin/summarise_run.py --results_dir results --run_id {run_id}"
-
-[feature.smoke.dependencies]
-pytest = ">=8.0"
+update-check = "python3 bin/skill-update-check.py"
 
 [feature.smoke.tasks]
-test = "pytest test_smoke.py"
+test = "python3 test_smoke.py --offline"
 
 [environments]
 default = []

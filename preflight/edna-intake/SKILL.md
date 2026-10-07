@@ -1,8 +1,8 @@
 ---
 name: edna-intake
-description: "Validate eDNA metabarcoding run inputs and write the initial pipeline_state.json with a GO / GO-WITH-WARNINGS / NO-GO verdict. Mirrors the bettamt-preflight pattern (gather inputs → compute evidence → write the machine contract). Computes 6 evidence items (marker, manifest schema, sample-count parity, metadata completeness, IDTAXA model, disk + tool availability) and refuses to write a GO verdict if any required tool or input is missing. The downstream run/edna-run sub-skill refuses to execute without verdict ≥ GO-WITH-WARNINGS. Has 7 explicit ask-user stop points (SP1–SP7) that fire only when evidence is ambiguous. Triggers: 'new eDNA run', 'start eDNA run', 'eDNA intake', 'resume eDNA run', 'eDNA pipeline parameters', 'marker gene 16S 18S COI 12S', 'set up eDNA metabarcoding'."
-version: 1.1.5
-updated: "2026-10-05"
+description: "Validate eDNA metabarcoding run inputs and write the initial pipeline_state.json with a GO / GO-WITH-WARNINGS / NO-GO verdict. Mirrors the bettamt-preflight pattern (gather inputs → compute evidence → write the machine contract). v1.2.0: pipeline renamed edna-agent; the single merged params.json (preset + run overrides) IS the artifact written here. Computes 7 evidence items (marker, manifest schema, sample-count parity, metadata completeness, IDTAXA model, tool + pixi env availability, disk) and refuses to write a GO verdict if any required tool or input is missing. The downstream run/edna-run sub-skill refuses to execute without verdict ≥ GO-WITH-WARNINGS. Has 7 explicit ask-user stop points (SP1–SP7) that fire only when evidence is ambiguous. Triggers: 'new eDNA run', 'start eDNA run', 'eDNA intake', 'resume eDNA run', 'eDNA pipeline parameters', 'marker gene 16S 18S COI 12S', 'set up eDNA metabarcoding'."
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "new eDNA run"
   - "start eDNA run"
@@ -35,7 +35,7 @@ Use this skill when you need to:
 
 ## Do NOT use this skill
 
-- If you have **raw reads that have not been QC-trimmed yet** — run `read-qc-trimming` first. nf-edna's `qc` stage does primer trimming; if your reads also need adapter trimming + quality filtering, do that first.
+- If you have **raw reads that have not been QC-trimmed yet** — run `read-qc-trimming` first. edna-agent's `qc` stage does primer trimming; if your reads also need adapter trimming + quality filtering, do that first.
 - If you want to **run the pipeline immediately** — this skill only writes the intake state; invoke `run/edna-run` after.
 - If your marker is **not one of the four supported** (16S, 18S-V9, COI, 12S) — the marker-specific behavior is hardcoded across `modules/` and `bin/` scripts. Adding a new marker requires a pipeline extension (out of scope for v1.1.0).
 - If you want to **interpret already-completed results** — invoke `interpret/edna-interpret` instead.
@@ -57,8 +57,8 @@ Use this skill when you need to:
 | Path | Format | Owner | Notes |
 | --- | --- | --- | --- |
 | `results/{run_id}/pipeline_state.json` | JSON | this skill | **Machine contract for `run/edna-run`.** Includes `run_id`, `pipeline`, `marker`, `verdict` (GO / GO-WITH-WARNINGS / NO-GO), `completed_stages`, `last_stage`, `params_used`, `outputs`. The `verdict` field is the gate `run/edna-run` reads. |
-| `results/{run_id}/params.json` | JSON | this skill | **Full parameter file for `nextflow run -params-file`.** Merged on top of the marker preset (`runners/nextflow-runner/params/{marker}.json`). |
-| `results/{run_id}/intake_evidence.txt` | text | this skill | Raw evidence output (file-existence checks, line counts, column-name parses, `which nextflow`, `df -h`) — kept for debugging. |
+| `results/{run_id}/params.json` | JSON | this skill | **Single merged parameter file: marker preset (`params/{marker}.json`) with run-specific overrides merged last-wins.** Consumed directly by the agent-driven stage recipes. |
+| `results/{run_id}/intake_evidence.txt` | text | this skill | Raw evidence output (file-existence checks, line counts, column-name parses, pixi/stage-env versions, `df -h`) — kept for debugging. |
 
 ### Verdict gate
 
@@ -112,10 +112,9 @@ This sub-skill has **7 stop points** (SP1–SP7). Each fires only when the evide
 
 | Trigger | Evidence check | Action |
 | --- | --- | --- |
-| `which nextflow` returns nothing | Tool missing | Ask: "Nextflow isn't on PATH. Pick: (A) install via `curl -s https://get.nextflow.io \| bash` (recommended), (B) it's installed somewhere else — I'll give you the path, (C) abort" |
-| `which pixi` returns nothing | Tool missing | Ask: "Pixi isn't on PATH. nf-edna's per-stage pixi envs need pixi to resolve. Pick: (A) install via `curl -fsSL https://pixi.sh/install.sh \| bash` (recommended), (B) abort" |
+| `which pixi` returns nothing | Tool missing | Ask: "Pixi isn't on PATH. edna-agent's per-stage pixi envs need pixi to resolve. Pick: (A) install via `curl -fsSL https://pixi.sh/install.sh \| bash` (recommended), (B) abort" |
 
-**Auto-pick when**: both `nextflow ≥ 23.10.0` and `pixi` are on PATH and `--version` succeeds. No ask.
+**Auto-pick when**: `pixi --version` succeeds and the qc + denoise stage envs resolve. No ask.
 
 ### SP6 — IDTAXA model file unrecognised
 
@@ -129,7 +128,7 @@ This sub-skill has **7 stop points** (SP1–SP7). Each fires only when the evide
 
 | Trigger | Evidence check | Action |
 | --- | --- | --- |
-| Free space at `results/` < 10 GB | Nextflow `work/` may run out | Ask: "Only `<X> GB` free where `results/` will live. nf-edna's intermediate work directory typically needs ≥ 10 GB. Pick: (A) free up disk by clearing intermediate files (recommended), (B) move `results/` to a larger disk — I'll give you the new path, (C) abort" |
+| Free space at `results/` < 10 GB | work + per-stage env resolution may run out | Ask: "Only `<X> GB` free where `results/` will live. edna-agent's intermediate work + per-stage env resolution typically needs ≥ 10 GB. Pick: (A) free up disk by clearing intermediate files (recommended), (B) move `results/` to a larger disk — I'll give you the new path, (C) abort" |
 
 **Auto-pick when**: free space ≥ 50 GB (silent go). 10–50 GB → `GO-WITH-WARNINGS` with one prompt (no ask — the warning is enough). < 10 GB → `NO-GO` unless overridden.
 
@@ -167,10 +166,10 @@ The procedure has **three phases**: (1) gather inputs, (2) compute evidence (six
 Ask if not already stated:
 
 > "Which marker gene are you running?
-> - **16S** (prokaryotes, V3-V4 or similar) → preset `runners/nextflow-runner/params/16s.json`
-> - **18S V9** (eukaryotes, aquatic biodiversity) → preset `runners/nextflow-runner/params/18s-v9.json`
-> - **COI** (eukaryotes, invertebrates) → preset `runners/nextflow-runner/params/coi.json`
-> - **12S** (eukaryotes, vertebrates) → preset `runners/nextflow-runner/params/12s.json`"
+> - **16S** (prokaryotes, V3-V4 or similar) → preset `params/16s.json`
+> - **18S V9** (eukaryotes, aquatic biodiversity) → preset `params/18s-v9.json`
+> - **COI** (eukaryotes, invertebrates) → preset `params/coi.json`
+> - **12S** (eukaryotes, vertebrates) → preset `params/12s.json`"
 
 Then ask:
 
@@ -258,15 +257,17 @@ Ask these only if the scientist indicates they want to customise:
 Before confirming, run the two background checks that don't depend on user input:
 
 ```bash
-# E5: tool availability
-which nextflow && nextflow -version | head -1
-which pixi && pixi --version
+# E5: tool availability (agent-driven: pixi envs, no workflow engine)
+pixi --version
+pixi run --manifest-path <skill-root>/env/qc/pixi.toml cutadapt --version
+pixi run --manifest-path <skill-root>/env/denoise/pixi.toml vsearch --version
+# (first-use env resolution may take minutes; that is normal)
 
 # E7: disk space at the path that will hold results/
 df -h "$(dirname results/{run_id})"
 ```
 
-If `which nextflow` or `which pixi` fails → trigger SP5 (ask user to install or provide a path).
+If the pixi or stage-env checks fail → trigger SP5 (ask user to install or provide a path).
 If free space < 10 GB → trigger SP7.
 
 ### Step 7 — Compute evidence + emit verdict
@@ -279,7 +280,7 @@ Append each evidence item to `results/{run_id}/intake_evidence.txt`:
 | **E2** | Manifest schema valid | SP2 auto-pick succeeded | Required for `GO` |
 | **E3** | Sample-count parity | Manifest row count == distinct FASTQ count | Required for `GO` |
 | **E4** | Metadata completeness | `sample-id` + `is_negative` columns present | `GO-WITH-WARNINGS` if `is_negative` missing; `NO-GO` if `sample-id` missing |
-| **E5** | Tool availability | `nextflow` + `pixi` on PATH, versions parse | Required for `GO` |
+| **E5** | Tool availability | `pixi` on PATH + qc/denoise stage envs resolve | Required for `GO` |
 | **E6** | IDTAXA model valid | `.rds` extension + ≥ 100 KB | Required for `GO` |
 | **E7** | Disk space | Free at `results/` ≥ 10 GB | `GO-WITH-WARNINGS` for 10–50 GB; `NO-GO` below 10 GB |
 
@@ -297,7 +298,7 @@ Display a summary table of all collected parameters and ask for confirmation:
 
 ```
 Run ID:           {run_id}
-Pipeline:         nf-edna
+Pipeline:         edna-agent
 Marker:           {marker}
 Manifest:         {input_manifest}  ({N} samples, {SE/PE})
 Metadata:         {metadata}  (grouping: {grouping_variable}, neg: {is_negative})
@@ -315,7 +316,7 @@ Evidence:
   E2 manifest       ✓ {SE/PE}, {N} samples
   E3 sample parity  ✓ {M} manifest rows, {N} FASTQ files
   E4 metadata       ✓ / ⚠ / ✗  (neg col: {yes/no/missing})
-  E5 tools          ✓ nextflow {ver} pixi {ver}
+  E5 tools          ✓ pixi {ver}, qc + denoise envs resolve
   E6 IDTAXA model   ✓ {size_mb} MB
   E7 disk space     ✓ / ⚠ / ✗  ({free_gb} GB free)
 
@@ -337,7 +338,7 @@ Once confirmed:
 ```json
 {
   "run_id": "{run_id}",
-  "pipeline": "nf-edna",
+  "pipeline": "edna-agent",
   "marker": "{marker}",
   "verdict": "GO | GO-WITH-WARNINGS | NO-GO",
   "completed_stages": [],
@@ -365,9 +366,9 @@ Once confirmed:
 
    Use the Write tool. Create the `results/{run_id}/` directory first if it doesn't exist.
 
-3. **Write `results/{run_id}/params.json`** — full parameter file for `nextflow run -params-file`:
+3. **Write `results/{run_id}/params.json`** — the SINGLE merged parameter file consumed by the agent-driven recipes:
 
-   This file is merged on top of the marker preset (`runners/nextflow-runner/params/{16s|18s-v9|coi|12s}.json`) — only include values here that differ from the chosen preset, plus the always-required run-specific fields below:
+   Merge the marker preset (`params/{16s|18s-v9|coi|12s}.json`) with the run-specific overrides (`{**preset, **overrides}`, last wins) and write the merged object here. Required keys always:
 
 ```json
 {
@@ -410,7 +411,7 @@ Tell the scientist:
 | `Metadata 'is_negative' column missing — decontam will silently disable` | User skipped SP4 or the metadata CSV was exported without the negative-control flag | Re-export metadata with `is_negative=TRUE/FALSE` per sample, or accept `GO-WITH-WARNINGS` and skip decontam |
 | `Primer sequence contains ambiguous bases that cutadapt can't parse` | IUPAC codes in user-supplied primers are non-standard, or the primer was pasted with whitespace | Trim whitespace; verify IUPAC codes against `cutadapt --help` (it accepts A/C/G/T/N + W/S/R/Y/K/M/B/D/H/V) |
 | `IDTAXA model file is corrupt or wrong format` | File is not a serialized R object (`saveRDS`), or the IDTAXA training script ran but didn't save | Retrain with `bin/train_idtaxa_model.R --input <fasta> --taxonomy <headers.tsv> --output <model.rds>` |
-| `nextflow: command not found` | Nextflow not on PATH | `curl -s https://get.nextflow.io \| bash && mv nextflow ~/bin/` (or any directory on PATH) |
+
 | `pixi: command not found` | Pixi not on PATH | `curl -fsSL https://pixi.sh/install.sh \| bash` then re-source `~/.bashrc` |
 | `No space left on device` while resolving per-stage pixi env | First-run pixi env resolution can take 1–3 GB per stage | Free ≥ 10 GB before intake, or move `results/` to a larger disk |
 | `Metadata 'grouping_variable' has only 1 unique value` | All samples have the same `treatment` / `site` / etc. label | Diversity and DAA analyses will be uninformative; either expand the metadata or accept that only the QC + classify stages are meaningful for this run |
@@ -418,7 +419,7 @@ Tell the scientist:
 ## Verification
 
 - [ ] `results/{run_id}/pipeline_state.json` exists with `verdict` set to one of `GO` / `GO-WITH-WARNINGS` / `NO-GO`.
-- [ ] `results/{run_id}/params.json` exists and merges cleanly on top of `runners/nextflow-runner/params/{marker}.json` (no missing required keys).
+- [ ] `results/{run_id}/params.json` exists and merges cleanly on top of `params/{marker}.json` (no missing required keys).
 - [ ] `results/{run_id}/intake_evidence.txt` exists with all 7 evidence items recorded.
 - [ ] The downstream `run/edna-run` sub-skill accepts the run (verdict ≥ `GO-WITH-WARNINGS`) OR refuses with a clear pointer to the failing evidence item.
 

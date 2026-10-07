@@ -1,8 +1,8 @@
 ---
 name: reference-db-run
 description: Executes the reference-db download + DECIPHER-training workflow after preflight has passed. Downloads the chosen reference (SILVA / PR2 / MIDORI2 / MitoFish / BOLD / custom) to the canonical assets directory, validates the file loads correctly (via the patched idtaxa_rds.R for DECIPHER pre-trained files; via FASTA parsing for raw references), and chains to idtaxa-training when the reference needs DECIPHER training. Writes run_summary.json for downstream consumers.
-version: 1.1.5
-updated: "2026-10-05"
+version: 1.2.0
+updated: "2026-10-08"
 triggers:
   - "run reference-db"
   - "execute reference DB download"
@@ -27,7 +27,7 @@ This sub-skill serves two simultaneous audiences:
 
 Use this sub-skill **after** `preflight/reference-db-preflight` returns a `GO` or `GO-WITH-WARNINGS` verdict.
 
-**Do NOT use this sub-skill** for: preflight validation (use `reference-db-preflight`); production eDNA classification (use `nf-edna`).
+**Do NOT use this sub-skill** for: preflight validation (use `reference-db-preflight`); production eDNA classification (use `edna-agent`).
 
 ## 0. Inputs / Outputs
 
@@ -132,7 +132,7 @@ pixi run python3 ~/.agents/skills/biodb-fetch/scripts/marker_refs.py url \
 #   run/markers-reference/SKILL.md.
 ```
 
-- **Cross-skill payoff**: the download writes into biodb-fetch's shared `store/` with a deterministic path + `.sha256` sidecar. A second nf-edna run (or any other consumer skill) requesting the same reference gets a `cache=hit` manifest row — zero re-download.
+- **Cross-skill payoff**: the download writes into biodb-fetch's shared `store/` with a deterministic path + `.sha256` sidecar. A second edna-agent run (or any other consumer skill) requesting the same reference gets a `cache=hit` manifest row — zero re-download.
 - **Division of ownership (unchanged)**: THIS sub-skill still owns catalog curation (which URL/version/license), the SP1 confirmation gate (show the command, wait for approval), SP3 load validation, and `idtaxa-training` chaining. biodb-fetch only owns fetch execution (mirrors, retries, md5, store).
 - **Evidence for this SP**: biodb-fetch manifest row (`cache=hit` or `miss`) + the file path from the manifest; then proceed to SP3 (validation) unchanged.
 - **Degradation**: biodb-fetch not deployed / its preflight NO-GO → fall through to SP2's documented `curl`/`gdown` commands exactly as written above; note the deviation in `run_summary.json`.
@@ -141,7 +141,7 @@ pixi run python3 ~/.agents/skills/biodb-fetch/scripts/marker_refs.py url \
 
 ### SP3 — Validate file loads
 
-> **Evidence**: I will run `bin/idtaxa_rds.R` (the patched nf-edna loader) for pre-trained DECIPHER files, or a Python/R script that parses the first 5 sequences for raw FASTAs.
+> **Evidence**: I will run `bin/idtaxa_rds.R` (the patched edna-agent loader) for pre-trained DECIPHER files, or a Python/R script that parses the first 5 sequences for raw FASTAs.
 >
 > For DECIPHER RDX3 files (SILVA):
 > ```bash
@@ -236,7 +236,7 @@ And write `run_summary.json`:
   "marker": "16s",
   "reference_choice": "silva-138.2",
   "url": "https://drive.google.com/uc?export=download&id=1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV",
-  "downloaded_file": "/home/user/data/nf-edna/assets/16s/SILVA_SSU_r138.2.rdata",
+  "downloaded_file": "/home/user/data/edna-agent/assets/16s/SILVA_SSU_r138.2.rdata",
   "downloaded_size_mb": 299.0,
   "downloaded_sha256": "...",
   "format_detected": "rdx3_xz",
@@ -274,7 +274,7 @@ gdown "1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV" \
 | `curl: (6) Could not resolve host: drive.google.com` | DNS / firewall blocking Google Drive | Use `gdown` (which goes through Drive's download API), or pick a non-Drive alternative |
 | `gdown: cannot retrieve file` | File ID is wrong, or file was made private | Verify the file ID by visiting the URL in a browser; check the DECIPHER Downloads page for the current ID |
 | `gzip: not in gzip format` | Wrong file downloaded — DECIPHER trainingFiles are XZ-compressed | Re-download; do NOT pipe through `gzip -d` directly. The patched `bin/idtaxa_rds.R` handles XZ internally. |
-| `unserialize(con): unknown input format` | The 5-byte RDX3 header wasn't skipped | Use the patched `bin/idtaxa_rds.R` (carried over from nf-edna v1.1.1) |
+| `unserialize(con): unknown input format` | The 5-byte RDX3 header wasn't skipped | Use the patched `bin/idtaxa_rds.R` (carried over from edna-agent v1.1.1) |
 | `readRDS(): cannot open file` | Path is wrong or the download was incomplete | `ls -lh <path>`; re-run with `curl -C -` to resume |
 | `MIDORI2 download: 403 Forbidden` | Session-based auth | Try the Zenodo mirror or contact maintainers |
 | `BOLD download: account required` | BOLD Public Data Package requires account | Register at boldsystems.org OR use MIDORI2 (free alternative) |
@@ -286,7 +286,7 @@ gdown "1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV" \
 - **`reference-db`** (parent) — invokes this sub-skill from SP0
 - **`preflight/reference-db-preflight`** (prerequisite) — must pass verdict before this sub-skill runs
 - **`idtaxa-training`** (sibling) — invoked when the reference needs DECIPHER training (Stage 1: NCBI headers, Stage 2: LearnTaxa)
-- **`nf-edna`** — downstream: consumes the reference for production classification
+- **`edna-agent`** — downstream: consumes the reference for production classification
 
 ## Verification
 

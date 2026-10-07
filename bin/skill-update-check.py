@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""nf-edna skill update check (v1.1.4).
+"""edna-agent skill update check (v1.1.4).
 
 Compares the deployed skill's git SHA + version to the upstream repo
-(github.com/cheahhl814/nf-edna). No network calls beyond `git fetch`.
+(github.com/cheahhl814/nf-edna-agent). No network calls beyond `git fetch`.
 
 Verdicts:
   UP-TO-DATE       local HEAD matches origin/HEAD (or origin/<default-branch>)
