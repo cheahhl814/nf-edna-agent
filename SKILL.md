@@ -1,8 +1,8 @@
 ---
 name: edna-agent
-description: Agent-driven orchestration of environmental DNA (eDNA) metabarcoding analysis for four marker genes — 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota) — covering intake → QC → denoise → classify → diversity → association → interpret with marker-specific parameter presets. The agent executes every stage tool directly (cutadapt, FastQC, NGmerge, VSEARCH UNOISE3, decontam, IDTAXA/DECIPHER, Maaslin2, mafft/FastTree) via per-stage pixi environments; no Nextflow required. Mirrors the BettaMt ask-user-stop-points pattern and the canonical bioinfo-skill-creator evidence chain (preflight → run → interpret with machine-readable handoff artifacts). Use when the user asks to "run an eDNA metabarcoding analysis", "process 16S/18S/COI/12S amplicon reads", "interpret eDNA results", "identify fish species from eDNA", or "set up an eDNA amplicon run". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream publishing) and edna-visualize (figures).
-version: 1.2.0
-updated: "2026-10-08"
+description: Agent-driven orchestration of environmental DNA (eDNA) metabarcoding analysis for four marker genes — 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota) — covering intake → QC → denoise → classify → diversity → association → interpret with marker-specific parameter presets. The agent executes every stage tool directly (cutadapt, FastQC, NGmerge, VSEARCH UNOISE3, decontam, IDTAXA/DECIPHER, Maaslin2, mafft/FastTree) via per-stage pixi environments; no Nextflow required. Mirrors the BettaMt ask-user-stop-points pattern and the canonical skill-forge evidence chain (preflight → run → interpret with machine-readable handoff artifacts). Use when the user asks to "run an eDNA metabarcoding analysis", "process 16S/18S/COI/12S amplicon reads", "interpret eDNA results", "identify fish species from eDNA", or "set up an eDNA amplicon run". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream publishing) and edna-visualize (figures).
+version: 1.2.1
+updated: "2026-10-12"
 triggers:
   - "run eDNA metabarcoding"
   - "process 16S amplicon reads"
@@ -165,7 +165,7 @@ results/{run_id}/
 | --- | --- |
 | `read-qc-trimming` | Run **before** `preflight/edna-intake` if your reads are raw (untrimmed) and need adapter trimming first. |
 | `pixi-skill` | Use to add/modify the per-stage pixi envs under `env/`. |
-| `bioinfo-skill-creator` | Meta-skill: battle-test and rebuild this skill (`test_smoke.py --offline`). |
+| `skill-forge` | Meta-skill: battle-test and rebuild this skill (`test_smoke.py --offline`). |
 | `edna-gbif-publish` | After `interpret/edna-interpret`, publish occurrence data to GBIF. |
 | `geocoding` | Used internally by `bin/geocurate_fetch.R` if geocuration is enabled for a run. |
 | **`idtaxa-training/`** (this repo) | Run **before** the first-ever run if you don't yet have an IDTAXA `.rds` model. NCBI FASTA → DECIPHER headers → trained `.rds`. |
