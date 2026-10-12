@@ -17,7 +17,6 @@ triggers:
   - "VSEARCH UNOISE3"
   - "metabarcoding pipeline"
   - "edna-agent"
-  - "edna-agent"
 requires:
   - "Pixi (curl -fsSL https://pixi.sh/install.sh | bash) — manages per-stage tool environments under env/"
   - "Python ≥ 3.10 (system) for intake/summary artifacts"
