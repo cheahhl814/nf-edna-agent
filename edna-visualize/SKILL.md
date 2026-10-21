@@ -240,7 +240,7 @@ Phases:
 - **edna-agent** (`~/.pi/agent/skills/edna-agent/`) — upstream: produces the 4 count tables + 3 taxonomy tables via `classify.nf:agglomerate_data`
 - **idtaxa-training** (`~/.pi/agent/skills/idtaxa-training/`) — sibling: produces the classifier that generated the classifications being visualized
 - **read-qc-trimming** (`~/.pi/agent/skills/read-qc-trimming/`) — upstream: pre-processes raw reads
-- **html-template-pack** (`~/.pi/agent/skills/html-template-pack/`) — downstream: package figures into a reviewable HTML report
+- **design-pack** (`~/.pi/agent/skills/design-pack/`, renamed from html-template-pack) — downstream: package figures into a reviewable HTML report
 
 ## Verification
 
