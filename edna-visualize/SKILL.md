@@ -17,8 +17,8 @@ description: >-
   counts, make figures. Pairs with `edna-agent`
   (upstream: produces the count tables) and `idtaxa-training` (sibling: produces
   the model used to generate classifications).
-version: 1.3.0
-updated: "2026-11-06"
+version: 1.3.1
+updated: "2026-11-07"
 triggers:
   - "make eDNA figures"
   - "plot heatmap of microbial communities"

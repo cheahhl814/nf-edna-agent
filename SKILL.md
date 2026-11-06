@@ -1,8 +1,8 @@
 ---
 name: edna-agent
 description: Agent-driven orchestration of environmental DNA (eDNA) metabarcoding analysis for four marker genes — 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota) — covering intake → QC → denoise → classify → diversity → association → interpret with marker-specific parameter presets. The agent executes every stage tool directly (cutadapt, FastQC, NGmerge, VSEARCH UNOISE3, decontam, IDTAXA/DECIPHER, Maaslin2, mafft/FastTree) via per-stage pixi environments; no Nextflow required. Mirrors the BettaMt ask-user-stop-points pattern and the canonical skill-forge evidence chain (preflight → run → interpret with machine-readable handoff artifacts). Use when the user asks to "run an eDNA metabarcoding analysis", "process 16S/18S/COI/12S amplicon reads", "interpret eDNA results", "identify fish species from eDNA", or "set up an eDNA amplicon run". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream publishing) and edna-visualize (figures).
-version: 1.3.0
-updated: "2026-11-06"
+version: 1.3.1
+updated: "2026-11-07"
 triggers:
   - "run eDNA metabarcoding"
   - "process 16S amplicon reads"

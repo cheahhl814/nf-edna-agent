@@ -16,7 +16,8 @@ suppressPackageStartupMessages({
     library(data.table)
 })
 
-RANK_CODES <- c(k = "superkingdom", p = "phylum", c = "class", o = "order",
+RANK_CODES <- c(k = "superkingdom", d = "superkingdom",  # k__ (RDP) and d__ (Mitohelper/NCBI) both mean superkingdom
+                p = "phylum", c = "class", o = "order",
                 f = "family", g = "genus", s = "species")
 RANK_ORDER <- unname(RANK_CODES)
 

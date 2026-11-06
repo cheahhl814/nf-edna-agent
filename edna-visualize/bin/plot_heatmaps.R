@@ -94,6 +94,15 @@ plot_level_heatmap <- function(relabund_file, taxonomy_file, metadata_file, outp
         taxonomy_df_level <- taxonomy_df_level[top_taxa, , drop=FALSE]
     }
 
+    # --- Sparse-input guard (F23, round 4): fewer than 2 features collapse on
+    # CLR (log of a single constant row) and sechm's getBreaks (min == max) —
+    # skip the level soft, don't crash the run.
+    if (nrow(relabund_matrix) < 2) {
+        message(paste("<", level_name, "> has", nrow(relabund_matrix),
+                      "feature(s) after filtering — too few for a CLR heatmap, skipping this level (soft skip, F23)."))
+        return(invisible(NULL))
+    }
+
     # --- Sample Merging / Averaging ---
     if (!is.null(group_by_var) && group_by_var %in% colnames(metadata_df)) {
         message(paste("Merging replicates by averaging across:", group_by_var))

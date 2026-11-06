@@ -9,8 +9,8 @@ description: >-
   (5, optional) PCoA ordination + PERMANOVA via `plot_ordination.R`
   (v1.3.0 adds stages 4–5 from the TBCG2026-course gap review: alpha boxplot + ordination figures).
   Writes `run_summary.json` for downstream consumers.
-version: 1.3.0
-updated: "2026-11-06"
+version: 1.3.1
+updated: "2026-11-07"
 triggers:
   - "run eDNA-visualize"
   - "execute eDNA figure generation"

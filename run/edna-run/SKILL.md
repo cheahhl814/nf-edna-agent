@@ -1,8 +1,8 @@
 ---
 name: edna-run
 description: "Execute the correct eDNA metabarcoding stage(s) for the run's marker preset — agent-driven: the agent constructs the stage's tool commands from the canonical recipe table, shows them to the scientist, executes them under the per-stage pixi environments, and updates pipeline_state.json only after verified success. Stages: qc (cutadapt + FastQC), denoise (NGmerge + VSEARCH UNOISE3 + decontam + negative-control filter), classify (DECIPHER IDTAXA + confidence filter + agglomeration + optional geocuration), diversity (mafft + FastTree + alpha + beta/PERMANOVA + community typing), association (differential abundance + correlations). Refuses to execute when the upstream preflight/edna-intake verdict is NO-GO. Has 4 explicit ask-user stop points (SP1–SP4). Triggers: 'run eDNA pipeline', 'execute eDNA stages', 'continue eDNA run', 'eDNA QC stage', 'eDNA denoise', 'eDNA classify', 'eDNA diversity', 'eDNA association'."
-version: 1.3.0
-updated: "2026-11-06"
+version: 1.3.1
+updated: "2026-11-07"
 triggers:
   - "run eDNA pipeline"
   - "execute eDNA stages"
@@ -146,7 +146,10 @@ Notes: `--maximum-length` is intentionally NOT passed — for short amplicons (M
 Per sample, from the trimmed pair:
 
 ```bash
-ENV[denoise] NGmerge -1 <R1.trimmed> -2 <R2.trimmed> -o results/${RUN_ID}/denoise/${sid}.merged.fastq.gz -z
+ENV[denoise] NGmerge -1 <R1.trimmed> -2 <R2.trimmed> -o results/${RUN_ID}/denoise/${sid}.merged.fastq.gz -d -z
+```
+
+NOTE (F15, round 4): the `-d` dovetail flag is MANDATORY whenever reads are longer than the amplicon insert (2×300 MiSeq on a MiFish-size barcode — reads run through and overlap with 3' overhangs). Without `-d`, NGmerge's default rejects every dovetail alignment: the run "succeeds" silently with ~5 merged reads per sample and UNOISE3 finds 0–1 ASVs — the tell is merged-read counts 4–8/sample against millions of trimmed pairs. With `-d`: ~90% stitching on the same data.
 ENV[denoise] vsearch --fastx_uniques ${sid}.merged.fastq.gz --fastaout ${sid}.derep.fasta --sizeout --minuniquesize 2 --fastq_ascii 33
 ENV[denoise] vsearch --cluster_unoise ${sid}.derep.fasta --centroids ${sid}.sequences.fasta --biomout ${sid}.table.biom --minsize 2 --unoise_alpha 2.0
 ENV[denoise] biom convert -i ${sid}.table.biom -o ${sid}.table.tsv --to-tsv \
@@ -349,6 +352,8 @@ ENV[denoise] vsearch --usearch_global /tmp/sanity_asvs.fna \
 # 0 hits → WARN loudly before CLASSIFY: "marker assumption may be wrong" (ask user; see SKILL.md F10)
 ```
 
+NOTE (F16, round 4): `--target_cov 0.6` (and even 0.8) is only valid against **amplicon-shaped** references. Full-mitogenome references (Mitohelper 12S export, full SILVA) can never reach a 0.6 target coverage from a ~230 bp query — the check reports a false 0. For whole-genome/mitogenome marker DBs use `--target_cov 0` (query_cov 0.8 + `--maxaccepts 10`) — verified live: same ASV sample scored 0/207 with target_cov 0.8 vs 247 hits with target_cov 0 on the Mitohelper 41,988-seq export.
+
 If the marker reference is unsuited to the primer pair (e.g., reference amplicons don't span the primer sites), the check itself reports 0 and the correct response is to **re-source or re-train the reference** (chain `reference-db/` → `idtaxa-training/`) — treat "0 sanity hits" as evidence for either a wrong marker OR an unsuitable reference, and ask the scientist which.
 
 ## Troubleshooting — Signature library
@@ -374,6 +379,10 @@ If the marker reference is unsuited to the primer pair (e.g., reference amplicon
 | `stop("No significant taxa at...")` (ancombc script) | effect too weak at padj threshold / agglomeration level | expected, not a failure — lower `--level_to_analyze` (e.g. Species) or loosen `--padj_threshold` and interpret with care |
 | `Warning: N hit IDs have no reference taxonomy entry` (consensus script) | reference FASTA IDs and taxonomy TSV IDs diverge | re-export both from the same source (e.g. Mitohelper); do not proceed with a partial mapping > 5% unmapped |
 | `stop("blast6out file is empty")` (consensus script) | nothing passed id 0.97 / query-cov 0.95 — reference coverage or wrong marker | run the marker-sanity check; verify the reference matches the amplicon region; loosen `--query_cov` only with a recorded reason |
+| NGmerge "succeeds" with 4–8 merged reads/sample, UNOISE finds 0–1 ASVs | reads longer than the insert: all alignments are dovetailed, defaults reject them (F15) | add `-d` to the NGmerge call (mandatory for 2×300 MiSeq / short amplicons); expect ~90% stitching after |
+| `The following variables specified are not in the meta data: 1` (ANCOMBC) | formula string contains `" + 1"` — parsed as a metadata variable (F21) | pass bare variable names, no intercept term |
+| `The 'microbiome' package is needed to process the imported data` (ANCOMBC) | association env lacks bioconductor-microbiome (F20) | shipped in v1.3.1 manifest; else `pixi add --manifest-path env/association/pixi.toml bioconductor-microbiome` |
+| sample-ID mismatch at agglomerate/visualization ("No common samples") | manifest IDs carry the Casava `_S<idx>` suffix, metadata sample-ids don't (F17) | normalize one side at intake — strip `_S\d+` from manifest IDs or append to metadata; verify with a quick intersection before CLASSIFY |
 | `argument --num_clusters: invalid int value: ''` | pipeline default empty string passed as CLI arg | omit the flag (script auto-determines); never pass empty string |
 | `Taxonomic rank 'Genus' not found` (DAA) | case-sensitive rank match in differential_abundance.R (columns are lowercase) | pass lowercase ("genus"); upstream fix: case-insensitive match as in correlation_analysis.R |
 | `Removed 2719 ASVs with unassigned Kingdom. Remaining: 0` | kingdoms preset incompatible with mitochondrial references | use `kingdoms: "all"` for 12S/COI (preset fixed v1.2.0) |

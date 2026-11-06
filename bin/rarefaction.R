@@ -75,14 +75,21 @@ depths <- unique(sort(c(seq(1L, max_depth, by = step_size), floor_step, max_dept
 depths <- depths[depths <= max_depth]
 message(paste("Rarefying at", length(depths), "depths up to", max_depth, "reads."))
 
-# vegan::rarefy gives expected richness per subsample (se=FALSE)
-sparse_ok <- depths >= 1
-rich_list <- lapply(depths, function(d) rarefy(counts_t, sample = d, se = FALSE))
-names(rich_list) <- depths
-curve_data <- data.table::rbindlist(lapply(names(rich_list), function(d) {
-    data.table(sample = rownames(rich_list[[d]]),
+# vegan::rarefy gives expected richness per subsample (se=FALSE).
+# NOTE (battle-test round 4, F18): in vegan 2.7.x a scalar `sample=` returns an
+# UNNAMED vector — rownames() is empty. Name the values explicitly from
+# rownames(counts_t); never assume dimnames survive the rarefy call.
+rich_list <- lapply(depths, function(d) {
+    richness <- as.numeric(rarefy(counts_t, sample = d, se = FALSE))
+    stats::setNames(richness, rownames(counts_t))
+})
+curve_data <- data.table::rbindlist(lapply(seq_along(rich_list), function(i) {
+    d <- depths[[i]]
+    vals <- rich_list[[i]]
+    vals <- vals[!is.na(vals)]
+    data.table(sample = names(vals),
                depth  = as.integer(d),
-               richness = as.numeric(rich_list[[d]]))
+               richness = as.numeric(vals))
 }))
 
 curve_data$observed_full <- as.numeric(rowSums(counts_t)[curve_data$sample])

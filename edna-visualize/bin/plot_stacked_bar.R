@@ -83,6 +83,14 @@ plot_level_composition <- function(relabund_file, taxonomy_file, metadata_file, 
     relabund_matrix <- relabund_matrix[common_features, , drop=FALSE]
     taxonomy_df_level <- taxonomy_df_level[common_features, , drop=FALSE]
 
+    # --- Sparse-input guard (F23, round 4): fewer than 2 features makes
+    # miaViz getTop(top=) exceed nrow — skip this level soft, don't crash the run.
+    if (nrow(relabund_matrix) < 2) {
+        message(paste("<", level_name, "> has", nrow(relabund_matrix),
+                      "feature(s) — too few for a stacked-bar chart, skipping this level (soft skip, F23)."))
+        return(invisible(NULL))
+    }
+
     level_name <- trimws(level_name)
     
     # --- Create TreeSummarizedExperiment Object ---
@@ -199,13 +207,14 @@ plot_level_composition <- function(relabund_file, taxonomy_file, metadata_file, 
     }
 
     # --- Generate Plot ---
-    # We use NULL for ordering to respect our physical row order and factor levels
+    # F24 (round 4): this miaViz build VALIDATES order.*.by — NULL is rejected.
+    # Sort rows by abundance (equivalent to the pre-sorted physical row order).
     p <- plotAbundance(
         tse_for_plot,
         assay.type = "relabundance",
         rank = plot_rank,
         min.abundance = 0.0001,
-        order.row.by = NULL,
+        order.row.by = "abund",
         order.col.by = NULL,
         layout = "bar",
         title = plot_title

@@ -112,29 +112,65 @@ if (!requireNamespace("ANCOMBC", quietly = TRUE)) {
 }
 library(ANCOMBC)
 
-formula <- paste0(group_var_safe, " + 1")
+# NOTE (F21): this ANCOMBC build parses the formula string as bare variable
+# names — " + 1" gets read as a metadata variable "1". Pass no intercept term.
+formula <- group_var_safe
+# API drift (battle-test round 4, F19): installed ancombc() takes underscore
+# args (assay_name, prv_cut, conserve, formula); older Bioc builds used
+# fix_formula/zero_cut/conservative. Try the observed signature first, then
+# the legacy one; pick result columns dynamically (res$res vs res$lfc + q_val).
 res <- tryCatch(
-    ancombc(data = tse, assay.name = "counts", fix_formula = formula,
-            p_adj_method = "fdr", zero_cut = 0.90, lib_cut = 0,
-            conservative = FALSE, neg_lb = FALSE),
+    ancombc(data = tse, assay_name = "counts", formula = formula,
+            p_adj_method = "fdr", prv_cut = 0.1, lib_cut = 0,
+            conserve = FALSE, neg_lb = FALSE),
     error = function(e) {
-        # Older/newer API: `formula` instead of `fix_formula`
-        message(paste("ancombc(fix_formula=...) failed (", conditionMessage(e), ") — retrying with formula=."))
-        ancombc(data = tse, assay.name = "counts", formula = formula,
+        message(paste("ancombc(assay_name/formula) failed (", conditionMessage(e), ") — retrying with legacy fix_formula/zero_cut/conservative signature."))
+        ancombc(data = tse, assay.name = "counts", fix_formula = formula,
                 p_adj_method = "fdr", zero_cut = 0.90, lib_cut = 0,
                 conservative = FALSE, neg_lb = FALSE)
     }
 )
 
-coef_col <- paste0(group_var_safe, levels(tse[[group_var_safe]])[2])
-diff <- data.frame(Taxon = rownames(counts_mat),
-                   log_fold_change = res$res[[coef_col]],
-                   p_value = res$res$p,
-                   p_adj = res$res$q,
+lfc_df <- NULL; p_col <- NA; q_col <- NA
+if (is.null(res$res)) {
+    if (!is.null(res$lfc)) { lfc_df <- res$lfc }
+} else if (is.list(res$res) && !is.data.frame(res$res)) {
+    # F22: res$res is a LIST of per-statistic frames (lfc/se/W/p_val/q_val/diff_abn)
+    lfc_df <- res$res$lfc; p_val_df <- res$res$p_val; q_val_df <- res$res$q_val
+} else {
+    lfc_df <- res$res
+}
+if (is.null(lfc_df)) stop("Unexpected ANCOMBC result structure — no $res or $lfc data frame.")
+message(paste("ANCOMBC result columns:", paste(names(lfc_df), collapse = ", ")))
+
+ref_level <- levels(tse[[group_var_safe]])[1]
+alt_level <- levels(tse[[group_var_safe]])[2]
+beta_col <- grep(paste0("^beta", "(.\\|_)?", group_var_safe), names(lfc_df), value = TRUE)[1]
+if (is.null(beta_col) || is.na(beta_col)) beta_col <- names(lfc_df)[2]  # first coefficient column
+coef_col <- beta_col
+p_col  <- intersect(c("p_val", "p"), names(lfc_df))[1]
+q_col  <- intersect(c("q_val", "q", "padj"), names(lfc_df))[1]
+tax_col <- intersect(c("taxon", "Taxon", "taxa"), names(lfc_df))[1]
+
+p_vals  <- if (!is.na(p_col)) lfc_df[[p_col]] else if (exists("p_val_df")) p_val_df[[2]] else NA
+q_vals  <- if (!is.na(q_col)) lfc_df[[q_col]] else NA_real_
+if (exists("q_val_df")) {
+    q_cand <- intersect(c("q_val", "q"), names(q_val_df))[1]
+    q_vals <- if (!is.na(q_cand)) q_val_df[[q_cand]] else q_val_df[[2]]
+}
+lfc_vals <- as.numeric(lfc_df[[beta_col]])
+diff <- data.frame(Taxon = lfc_df[[tax_col]],
+                   log_fold_change = lfc_vals,
+                   p_value = NA_real_,
+                   p_adj   = NA_real_,
                    check.names = FALSE)
+diff$p_value <- as.numeric(p_vals)
+diff$p_adj   <- as.numeric(q_vals)
+diff$Taxon <- as.character(diff$Taxon)
 diff$direction <- ifelse(is.na(diff$log_fold_change), NA,
-                         ifelse(diff$log_fold_change > 0, "higher_in_" %+% levels(tse[[group_var_safe]])[2],
-                                "higher_in_" %+% levels(tse[[group_var_safe]])[1]))
+                         ifelse(diff$log_fold_change > 0,
+                                paste0("higher_in_", alt_level),
+                                paste0("higher_in_", ref_level)))
 
 out_file <- file.path(args$output_dir, "ancombc_results.tsv")
 fwrite(diff, file = out_file, sep = "\t", quote = FALSE, row.names = FALSE)
@@ -147,7 +183,7 @@ if (nrow(sig) > 0) {
     sig$Taxon <- factor(sig$Taxon, levels = rev(sig$Taxon))
     p <- ggplot(sig, aes(x = log_fold_change, y = Taxon, fill = ifelse(log_fold_change > 0, "pos", "neg"))) +
         geom_bar(stat = "identity") +
-        labs(title = paste0("ANCOM-BC differential abundance (", coef_col, ", padj <= ", args$padj_threshold, ")"),
+        labs(title = paste0("ANCOM-BC differential abundance (", coef_col, " vs ", ref_level, ", padj <= ", args$padj_threshold, ")"),
              x = "Bias-corrected log-fold change", y = NULL) +
         scale_fill_manual(values = c("pos" = "#E5851F", "neg" = "#2F6CA3"), guide = "none") +
         theme_minimal()

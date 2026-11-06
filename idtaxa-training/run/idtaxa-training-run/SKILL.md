@@ -6,8 +6,8 @@ description: >-
   (2) DECIPHER-format FASTA → trained `Taxa Train` model via `train_idtaxa_model.R`,
   (3) model + DECIPHER FASTA → species list + classification via `extract_scientific_names.jl`
   and the patched `idtaxa_rds.R`. Writes `run_summary.json` for downstream consumers.
-version: 1.3.0
-updated: "2026-11-06"
+version: 1.3.1
+updated: "2026-11-07"
 triggers:
   - "run IDTAXA training"
   - "execute IDTAXA stages"
