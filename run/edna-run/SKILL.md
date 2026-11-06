@@ -1,8 +1,8 @@
 ---
 name: edna-run
 description: "Execute the correct eDNA metabarcoding stage(s) for the run's marker preset — agent-driven: the agent constructs the stage's tool commands from the canonical recipe table, shows them to the scientist, executes them under the per-stage pixi environments, and updates pipeline_state.json only after verified success. Stages: qc (cutadapt + FastQC), denoise (NGmerge + VSEARCH UNOISE3 + decontam + negative-control filter), classify (DECIPHER IDTAXA + confidence filter + agglomeration + optional geocuration), diversity (mafft + FastTree + alpha + beta/PERMANOVA + community typing), association (differential abundance + correlations). Refuses to execute when the upstream preflight/edna-intake verdict is NO-GO. Has 4 explicit ask-user stop points (SP1–SP4). Triggers: 'run eDNA pipeline', 'execute eDNA stages', 'continue eDNA run', 'eDNA QC stage', 'eDNA denoise', 'eDNA classify', 'eDNA diversity', 'eDNA association'."
-version: 1.2.0
-updated: "2026-10-08"
+version: 1.3.0
+updated: "2026-11-06"
 triggers:
   - "run eDNA pipeline"
   - "execute eDNA stages"
@@ -81,6 +81,14 @@ Before constructing any command, read `pipeline_state.json.verdict`. `NO-GO`/mis
 A stage command exits non-zero → Ask: "`<stage>` failed with `<excerpt>`. Pick: (A) **retry** — adjust a merged param (tell me which) and rerun, (B) **skip** this stage (recorded in the report; never added to completed_stages), (C) **abort** (state preserved)". Auto-pick when the stage succeeds: no ask.
 
 ### SP4 — Resume-from-stage ambiguity
+
+### SP5 — Classification path choice (classify stage)
+
+| Trigger | Evidence check | Action |
+| --- | --- | --- |
+| No `idtaxa_model` resolved for this run, or the scientist wants a reference-database route instead of a trained classifier | `params.json.idtaxa_model` empty/unresolvable, or user names a reference FASTA + taxonomy TSV | Ask: "(A) **Train an IDTAXA model first** via `idtaxa-training/` (recommended when a curated reference like Mitohelper/SILVA is available — higher specificity); (B) **consensus-BLAST path** — classify against the supplied reference with vsearch + majority-vote (no model needed, mirrors QIIME2 classify-consensus-blast); (C) abort". Default to (B) when a model is absent and a labelled reference FASTA + taxonomy TSV exist, and record the choice in `pipeline_state.json.params_used.classification_method`. |
+
+Auto-pick (B) when `params.json.classification_method == "consensus-blast"` was set at intake; auto-pick (A)-route when the model exists and the param is unset or `"idtaxa"`.
 
 `completed_stages` ≥ 2 entries AND user did not specify → Ask: "I see `<N>` stages complete. Pick: (A) only the **next** stage, (B) **all remaining** stages, (C) a specific stage". Auto-pick (≤1 entry + "continue"): next stage only.
 
@@ -193,6 +201,27 @@ ENV[classification] seqtk subseq taxonomy/rep_seqs_clean.fna taxonomy/asv_ids_to
 
 Notes: (1) `bin/idtaxa_rds.R` loads standard RDS, gzipped RDS, and XZ/RDX3 DECIPHER trainingFiles automatically; (2) `--kingdoms` filtering happens inside agglomerate — for **mitochondrial markers (12S/COI) the superkingdom is `unassigned`**, so the preset ships `kingdoms: "all"` (pass anything else and ALL ASVs are dropped); (3) pass rank levels in the exact case used by the taxonomy columns (`genus`, `species`).
 
+#### Alternative classify path — consensus-BLAST (no IDTAXA model needed)
+
+Fires when SP5 resolves to `consensus-blast` (params `classification_method: "consensus-blast"` + optional params `reference_fasta` / `reference_taxonomy`). Mirrors QIIME2 `classify-consensus-blast` (identity 0.97, query-cov 0.95, maxaccepts 100, min-consensus 0.8 — the TBCG2026-course/Mitohelper route). The R script writes the same idtaxa-style filenames, so the filter/agglomerate chain below runs unchanged — keep the filter threshold moderate (the confidence scale here is percent vote-share among accepted hits, not an IDTAXA posterior):
+
+```bash
+sed 's/;size=[0-9]*//' asv_table/filtered_rep_seqs.fna > taxonomy/rep_seqs_clean.fna
+
+ENV[denoise] vsearch --usearch_global taxonomy/rep_seqs_clean.fna --db ${P.reference_fasta} \
+  --id 0.97 --query_cov 0.95 --maxaccepts 100 --maxrejects 0 --blast6out taxonomy/blast6out.tsv
+
+ENV[classification] Rscript bin/consensus_blast_taxonomy.R \
+  --blast6out taxonomy/blast6out.tsv --reference_taxonomy ${P.reference_taxonomy} \
+  --output_classification taxonomy/idtaxa_classification.tsv \
+  --output_confidence taxonomy/idtaxa_confidence.tsv --min_consensus 0.8
+
+# then run the SAME confidence-filter + agglomerate + seqtk chain as the IDTAXA path above
+# (e.g. ENV[decontam] julia bin/filter_idtaxa_by_confidence.jl ... --threshold 50)
+```
+
+Notes: (1) `reference_taxonomy` accepts either RDP rank-coded lineages (`k__..;p__..;` — the QIIME2 `FeatureData[Taxonomy]` export format) or ID + per-rank columns; (2) an empty `blast6out` is the reference-coverage/marker-sanity failure mode — route back to the marker-sanity check, don't retry blindly.
+
 #### Stage `diversity` — tree + alpha + beta + community typing
 
 ```bash
@@ -215,6 +244,13 @@ ENV[diversity] Rscript bin/beta_diversity.R --input_asv_counts taxonomy/agglomer
 ENV[diversity] Rscript bin/community_typing.R --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
   --input_metadata ${P.metadata} --clustering_method "${P.clustering_method:-ward.D2}" \
   --output_dir diversity/beta        # do NOT pass --num_clusters with an empty string
+
+# Rarefaction curves (expected richness vs depth) — mirrors QIIME2 alpha-rarefaction.
+# Strongly recommended whenever per-sample totals differ > 10%: reviewer evidence
+# that diversity comparisons are not a depth artifact.
+ENV[diversity] Rscript bin/rarefaction.R --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
+  --input_metadata ${P.metadata} --output_dir diversity/alpha \
+  --grouping_variable "${P.grouping_variable}"   # max_depth defaults to the shallowest sample
 ```
 
 #### Stage `association` — differential abundance + correlations
@@ -244,6 +280,21 @@ ENV[association] Rscript bin/correlation_analysis.R  ...same... --level_to_analy
   --output_dir association/correlation/correlation_analysis_family
 ```
 
+#### Alternative DAA — ANCOM-BC (bias-corrected, compositional)
+
+Fires when the scientist picks it, or when params `daa_method: "ancombc"` (default `maaslin2`). Mirrors QIIME2 `qiime composition ancombc`: collapses to a rank (default Genus, like the course's `taxa collapse --p-level 6`), corrects sampling-fraction bias, and reports log-fold changes relative to the baseline level. Unlike Maaslin2, ANCOM-BC consumes the **unrarefied collapsed table** — no prevalence filter is applied upstream.
+
+```bash
+ENV[association] Rscript bin/ancombc_differential.R \
+  --input_asv_counts taxonomy/agglomerated_data/asv_counts.tsv \
+  --input_asv_taxonomy taxonomy/agglomerated_data/asv_taxonomy.tsv \
+  --input_metadata ${P.metadata} --grouping_variable "${P.grouping_variable}" \
+  --reference_level "${P.reference_level}" --level_to_analyze "Genus" \
+  --output_dir association/differential_abundance_ancombc
+```
+
+Notes: (1) output = `ancombc_results.tsv` (log_fold_change, p_value, p_adj, direction) + `ancombc_da_barplot.pdf`; (2) the Bioconductor ANCOMBC package resolvability is asserted inside the script — if missing, `pixi add --manifest-path env/association/pixi.toml bioconductor-ancombc` (it ships in the v1.3.0 manifest); (3) Maaslin2 and ANCOM-BC can disagree on individual taxa — when a run carries both, report them side by side in the interpret report rather than averaging.
+
 ### Step 4 — Show commands and wait for confirmation
 
 Display the full command chain and ask: "Proceed? (yes / no / change a parameter)". If a parameter changes, update `results/{run_id}/params.json` (the intake-merged file), re-merge if the preset base changed, and show revised commands. Do not execute until confirmed.
@@ -258,7 +309,7 @@ Run each stage's commands (Bash tool). After each stage, verify outputs BEFORE u
 | denoise | `asv_table/filtered_asv_table.tsv` + `filtered_rep_seqs.fna` exist non-trivial |
 | classify | `taxonomy/agglomerated_data/asv_counts.tsv` has ≥ 1 sample column |
 | diversity | `diversity/alpha/alpha_diversity_metrics.tsv` + `diversity/beta/permanova_results.tsv` exist |
-| association | `association/differential_abundance/differential_abundance_results.tsv` exists |
+| association | `association/differential_abundance/differential_abundance_results.tsv` exists (or `ancombc_results.tsv` when `daa_method: "ancombc"`) |
 
 Report progress: "✓ QC complete (retention 93%)"; "✓ DENOISE complete (2,719 ASVs / 7 samples)".
 
@@ -319,6 +370,10 @@ If the marker reference is unsuited to the primer pair (e.g., reference amplicon
 | Classification output all-NA despite plausible model | `IdTaxa` default threshold (60, on 0–100 scale) + confidence's length dependence on short queries | pass `threshold` explicitly; compare query vs training length regime; prefer training sequences of similar length (in-silico amplicons) |
 | `PERMANOVA R2 = 1.0` with no F/p | one sample per group — degenerate model | expected with unreplicated grouping variables; report as such |
 | no DAA power (0/n significant) | reference level absent from counts (negatives pre-filtered), or 1 sample/group | pick a replicable reference_level at intake; SP: confirm |
+| `Package ANCOMBC not available` (R) | association env resolved before v1.3.0, lacks bioconductor-ancombc | `pixi add --manifest-path env/association/pixi.toml bioconductor-ancombc`, re-run the DAA stage |
+| `stop("No significant taxa at...")` (ancombc script) | effect too weak at padj threshold / agglomeration level | expected, not a failure — lower `--level_to_analyze` (e.g. Species) or loosen `--padj_threshold` and interpret with care |
+| `Warning: N hit IDs have no reference taxonomy entry` (consensus script) | reference FASTA IDs and taxonomy TSV IDs diverge | re-export both from the same source (e.g. Mitohelper); do not proceed with a partial mapping > 5% unmapped |
+| `stop("blast6out file is empty")` (consensus script) | nothing passed id 0.97 / query-cov 0.95 — reference coverage or wrong marker | run the marker-sanity check; verify the reference matches the amplicon region; loosen `--query_cov` only with a recorded reason |
 | `argument --num_clusters: invalid int value: ''` | pipeline default empty string passed as CLI arg | omit the flag (script auto-determines); never pass empty string |
 | `Taxonomic rank 'Genus' not found` (DAA) | case-sensitive rank match in differential_abundance.R (columns are lowercase) | pass lowercase ("genus"); upstream fix: case-insensitive match as in correlation_analysis.R |
 | `Removed 2719 ASVs with unassigned Kingdom. Remaining: 0` | kingdoms preset incompatible with mitochondrial references | use `kingdoms: "all"` for 12S/COI (preset fixed v1.2.0) |

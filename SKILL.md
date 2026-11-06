@@ -1,8 +1,8 @@
 ---
 name: edna-agent
 description: Agent-driven orchestration of environmental DNA (eDNA) metabarcoding analysis for four marker genes — 16S (Bacteria/Archaea), 18S-V9, COI, and 12S (Eukaryota) — covering intake → QC → denoise → classify → diversity → association → interpret with marker-specific parameter presets. The agent executes every stage tool directly (cutadapt, FastQC, NGmerge, VSEARCH UNOISE3, decontam, IDTAXA/DECIPHER, Maaslin2, mafft/FastTree) via per-stage pixi environments; no Nextflow required. Mirrors the BettaMt ask-user-stop-points pattern and the canonical skill-forge evidence chain (preflight → run → interpret with machine-readable handoff artifacts). Use when the user asks to "run an eDNA metabarcoding analysis", "process 16S/18S/COI/12S amplicon reads", "interpret eDNA results", "identify fish species from eDNA", or "set up an eDNA amplicon run". Builds on read-qc-trimming (raw-read QC upstream) and pairs with edna-gbif-publish (downstream publishing) and edna-visualize (figures).
-version: 1.2.1
-updated: "2026-10-12"
+version: 1.3.0
+updated: "2026-11-06"
 triggers:
   - "run eDNA metabarcoding"
   - "process 16S amplicon reads"
@@ -25,6 +25,8 @@ requires:
 
 # Meta-Skill: edna-agent
 
+> **v1.3.0.** Gap-fill from the TBCG2026 QIIME2-course comparison (2026-11-06): (1) **rarefaction curves** (`bin/rarefaction.R`, diversity stage — mirrors `qiime diversity alpha-rarefaction`); (2) **Pielou evenness** added to `bin/alpha_diversity.R` metrics; (3) **consensus-BLAST classify path** (`bin/consensus_blast_taxonomy.R` + vsearch, SP5 — no trained IDTAXA model needed; mirrors `classify-consensus-blast` vs labelled references like Mitohelper); (4) **ANCOM-BC** as an alternative DAA (`bin/ancombc_differential.R`, `daa_method: "ancombc"`); (5) **edna-visualize stages 4–5** — grouped alpha-boxplots (`plot_alpha_boxplot.R`) and PCoA ordination + PERMANOVA (`plot_ordination.R`), with the previously-phantom `env/visualization/` now materialized at the skill root.
+>
 > **v1.2.0.** Agent-driven only: the `runners/nextflow-runner/` (Nextflow DSL2 pipeline) has been **removed**. Every stage is executed by the agent running the stage tools directly under per-stage pixi environments (`env/{stage}/pixi.toml`), following the bash recipes in `run/edna-run/SKILL.md`. Rationale (2026-10-07/08 real-data battle-test, `battle-test-report.md`): Nextflow 26.04.6 rejects the `def`-function config grammar (`Unexpected input: '('`) and rejects multiple `-params-file` flags, and the wrapped tool recipes themselves were error-free once executed directly — the runner added failure surface without adding correctness. Other v1.2.0 fixes carried into this version: `env/denoise` ships NGmerge; `r-rbiom` pinned 2.2.1 across classification/diversity/association envs; DAA/correlation/typing rank matching made robust; marker presets hoisted to `params/` at the skill root. **Renamed from nf-edna → edna-agent** (the `nf-` prefix marked the Nextflow era, and the mirror rename `nf-phylogenetics-agent → phylogenetics-agent` sets the convention).
 >
 > **v1.1.x history** (nextflow-runner era): v1.1.5 biodb-fetch wiring; v1.1.4 runners/nextflow-runner restructure (removed in v1.2.0); v1.1.3 reference-db sub-skill; v1.1.2 idtaxa-training + edna-visualize sub-skills; v1.1.1 DECIPHER RDX3/XZ model loading; v1.1.0 canonical BettaMt structure.

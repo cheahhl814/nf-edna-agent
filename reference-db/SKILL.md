@@ -1,8 +1,8 @@
 ---
 name: reference-db
 description: Curated catalog of reference-database direct-download URLs for the four edna-agent markers (16S Bacteria/Archaea, 18S-V9 Eukaryota, COI Metazoa, 12S fish eDNA), with workflows for retrieving them and (when needed) training DECIPHER IDTAXA classifiers. Covers SILVA (16S/18S, DECIPHER pre-trained via Google Drive), PR2 (18S, DECIPHER pre-trained via GitHub releases), MIDORI2 (COI/12S mitochondrial, requires DECIPHER training), MitoFish (12S fish, raw FASTA + DECIPHER training), and BOLD (COI, requires DECIPHER training). Includes NCBI eutils access for custom FASTA construction (e.g., 12S Actinopterygii) via the existing `idtaxa-training` sub-skill. Mirrors the BettaMt ask-user-stop-points pattern. Use when the user asks to "download SILVA reference", "get PR2 database", "find MitoFish FASTA", "COI reference for metabarcoding", "where do I download 16S reference", "where do I download 18S reference", "where do I download 12S reference", "where do I download COI reference", "I need a reference for edna-agent", "what reference should I use for marker X", or "train a reference for marker X".
-version: 1.2.0
-updated: "2026-10-08"
+version: 1.3.0
+updated: "2026-11-06"
 triggers:
   - "download SILVA reference"
   - "get SILVA database"

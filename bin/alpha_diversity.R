@@ -107,7 +107,18 @@ alpha_metrics <- c("observed", "shannon", "faith") # faith requires a tree
 
 # Add alpha diversity to colData
 tse <- addAlpha(tse, assay.type = "counts", index = alpha_metrics)
-message("Alpha diversity metrics calculated and added to colData.")
+
+# Pielou evenness (Shannon / log(observed)) — computed here because the mia
+# addAlpha index set does not ship it. Undefined when observed <= 1 (NA):
+# a sample with a single feature has zero evenness information, not perfect evenness.
+shannon_vals  <- as.numeric(colData(tse)$shannon)
+observed_vals <- as.numeric(colData(tse)$observed)
+pielou_vals   <- rep(NA_real_, length(shannon_vals))
+valid <- !is.na(shannon_vals) & !is.na(observed_vals) & observed_vals > 1
+pielou_vals[valid] <- shannon_vals[valid] / log(observed_vals[valid])
+colData(tse)$pielou <- pielou_vals
+alpha_metrics <- c(alpha_metrics, "pielou")
+message("Alpha diversity metrics calculated and added to colData (incl. Pielou evenness).")
 
 # Ensure the grouping variable is a factor
 if (!args$grouping_variable %in% names(colData(tse))) {

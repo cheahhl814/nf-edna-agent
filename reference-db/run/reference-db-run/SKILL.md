@@ -1,8 +1,8 @@
 ---
 name: reference-db-run
 description: Executes the reference-db download + DECIPHER-training workflow after preflight has passed. Downloads the chosen reference (SILVA / PR2 / MIDORI2 / MitoFish / BOLD / custom) to the canonical assets directory, validates the file loads correctly (via the patched idtaxa_rds.R for DECIPHER pre-trained files; via FASTA parsing for raw references), and chains to idtaxa-training when the reference needs DECIPHER training. Writes run_summary.json for downstream consumers.
-version: 1.2.0
-updated: "2026-10-08"
+version: 1.3.0
+updated: "2026-11-06"
 triggers:
   - "run reference-db"
   - "execute reference DB download"

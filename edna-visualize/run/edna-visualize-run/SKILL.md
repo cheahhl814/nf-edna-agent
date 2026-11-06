@@ -1,21 +1,26 @@
 ---
 name: edna-visualize-run
 description: >-
-  Executes the 3-stage eDNA-visualize workflow after preflight has passed
+  Executes the 5-stage eDNA-visualize workflow after preflight has passed
   (1) counts → relative abundance via `normalize_abundance.R`,
   (2) CLR-transformed ComplexHeatmap heatmaps at Phylum/Family/Genus levels via `plot_heatmaps.R`,
-  (3) high-contrast stacked-bar charts via `plot_stacked_bar.R`.
+  (3) high-contrast stacked-bar charts via `plot_stacked_bar.R`,
+  (4, optional) grouped alpha-diversity boxplots via `plot_alpha_boxplot.R`, and
+  (5, optional) PCoA ordination + PERMANOVA via `plot_ordination.R`
+  (v1.3.0 adds stages 4–5 from the TBCG2026-course gap review: alpha boxplot + ordination figures).
   Writes `run_summary.json` for downstream consumers.
-version: 1.2.0
-updated: "2026-10-08"
+version: 1.3.0
+updated: "2026-11-06"
 triggers:
   - "run eDNA-visualize"
   - "execute eDNA figure generation"
   - "make publication-ready eDNA plots"
+  - "plot eDNA ordination"
+  - "alpha diversity boxplot eDNA"
 requires:
   - "Preflight verdict = GO or GO-WITH-WARNINGS (gates this sub-skill)"
   - "pixi (runs the R scripts)"
-  - "R ≥ 4.2 with mia, miaViz, sechm, ComplexHeatmap, data.table, ggplot2, S4Vectors, argparse"
+  - "R ≥ 4.2 with mia, miaViz, sechm, ComplexHeatmap, data.table, ggplot2, S4Vectors, argparse, vegan (rstatix/ggpubr optional)"
 ---
 
 # Sub-Skill: edna-visualize-run
@@ -185,11 +190,74 @@ Each stop point follows the canonical **Evidence + Recommend + Options** pattern
 > 
 > Options:
 > 
-> - **(A) Stage 3 succeeded, write run_summary.json (Recommended)**
+> - **(A) Stage 3 succeeded, continue (Recommended)**
 > - (B) Re-run with `--top_n_taxa 5`
 > - (C) Abort
 
 **Auto-pick when**: 3 stacked-bar PDFs created — auto-pick (A).
+
+---
+
+### SP5 — Stage 4 (optional): grouped alpha-diversity boxplots
+
+> **Evidence**: I will run:
+>
+> ```bash
+> pixi run --manifest-path env/visualization/pixi.toml \
+>   Rscript bin/plot_alpha_boxplot.R \
+>     --input_alpha_metrics "<path-to>/alpha_diversity_metrics.tsv" \
+>     --input_metadata "$metadata_file" \
+>     --group_by "$group_by" \
+>     --output_dir "$output_dir"
+> ```
+>
+> Fires only when `alpha_diversity_metrics.tsv` (from the edna-agent diversity stage, or any metrics TSV with a `SampleID` column) is available. If absent, this stage is **skipped without failing** the run — record `alpha_boxplots: null` in state.
+
+- ✅ PASS if: ≥ 1 `alpha_boxplot_*.pdf` written (one per available metric)
+- ⚠️ WARN if: some requested metrics are missing (e.g. `faith` without a tree) — those are skipped with a warning
+- ❌ FAIL if: script exited non-zero with a plottable input
+
+> **Recommend**: PASS → proceed to SP6. FAIL → check the metrics TSV columns (`--metrics`).
+
+**Options**:
+>
+> - **(A) proceed to SP6 (Recommended)**
+> - (B) re-run with a different `--group_by`
+> - (C) Abort
+
+**Auto-pick when**: PDFs created — auto-pick (A).
+
+---
+
+### SP6 — Stage 5 (optional): PCoA ordination + PERMANOVA
+
+> **Evidence**: I will run:
+>
+> ```bash
+> pixi run --manifest-path env/visualization/pixi.toml \
+>   Rscript bin/plot_ordination.R \
+>     --input_asv_counts "<group-or-asv count table>" \
+>     --input_metadata "$metadata_file" \
+>     --group_by "$group_by" \
+>     --distance bray \
+>     --output_dir "$output_dir"
+> ```
+>
+> Fires only when a count table is available. The tree-rooted UniFrac variant (`--distance unifrac --input_tree rooted-tree.nwk`) is optional and only run when the edna-agent diversity tree is on hand. Absent inputs → skip without failing.
+
+- ✅ PASS if: `pcoa_<distance>.pdf` + `pcoa_coordinates_<distance>.tsv` (+ `permanova_<distance>.txt` when a grouping variable was passed) written
+- ⚠️ WARN if: PERMANOVA annotation skipped (1 sample/group — degenerate model; report as such)
+- ❌ FAIL if: script exited non-zero with a valid count table
+
+> **Recommend**: PASS → write `run_summary.json`.
+
+**Options**:
+>
+> - **(A) proceed to run-summary write (Recommended)**
+> - (B) re-run another `--distance` (jaccard / unifrac)
+> - (C) Abort
+
+**Auto-pick when**: ordination PDF created — auto-pick (A).
 
 ---
 
@@ -207,7 +275,9 @@ After all 4 stop points pass, append to `pipeline_state.json`:
   "outputs": {
     "relabundance": ["asv", "phylum", "family", "genus"],
     "heatmaps": ["phylum", "family", "genus"],
-    "stacked_bars": ["phylum", "family", "genus"]
+    "stacked_bars": ["phylum", "family", "genus"],
+    "alpha_boxplots": null,
+    "ordination": null
   }
 }
 ```
@@ -250,6 +320,10 @@ And write `run_summary.json`:
 | `Heatmap is empty (no features passed the top_n filter)`                 | `--top_n` is too small for the dataset                                           | Re-run with `--top_n 100` (default 50); or check that count table is not empty                                                                   |
 | `Stacked bar shows only "Other" (no top-N taxa)`                         | All taxa are below `--top_n_taxa` threshold (dataset has very even distribution) | Re-run with `--top_n_taxa 5` (default 20); or check that count table is not uniform                                                              |
 | `Error: gpar(fontsize = 8)` from ComplexHeatmap                          | ComplexHeatmap version incompatible with sechm                                   | Update both: `pixi run --manifest-path env/visualization/pixi.toml R -e 'BiocManager::install("ComplexHeatmap"); BiocManager::install("sechm")'` |
+| `there is no package called 'rstatix'` / `'ggpubr'` (alpha boxplot)      | significance deps optional, absent in env                                        | boxplot is written without annotations (by design); add `r-rstatix` + `r-ggpubr` to the env only if annotations are wanted |
+| `Metric column not present, skipping: pielou`                           | metrics TSV predates the v1.3.0 Pielou addition                                   | re-run the edna-agent diversity stage (v1.3.0 `alpha_diversity.R` adds the `pielou` column) |
+| `UniFrac requires --input_tree` / `rbiom not available`                   | tree or rbiom absent in the visualize run                                        | pass the rooted tree from the edna-agent diversity stage, or fall back to `--distance bray` |
+| `adonis2: 1 sample per group — degenerate` (ordination)                  | no replication within groups                                                     | expected — PERMANOVA annotation is skipped; report ordination as descriptive only |
 
 ## 3. Related skills
 
@@ -264,6 +338,7 @@ And write `run_summary.json`:
 - [ ] The exact `pixi run Rscript ...` command for each stage was shown to the user and explicitly confirmed (Step invariant).
 - [ ] `pipeline_state.json.completed_stages` was extended only after a stage succeeded (Step invariant).
 - [ ] All 4 normalized TSVs + 3 heatmap PDFs + 3 stacked-bar PDFs are written.
+- [ ] Alpha boxplot + ordination stages ran or were consciously skipped (optional inputs: `alpha_diversity_metrics.tsv`, count table / tree).
 - [ ] `run_summary.json` was written at the end of the run.
 
 ## Invariants

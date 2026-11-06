@@ -1,6 +1,6 @@
 # edna-agent
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue)](#-installation)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue)](#-installation)
 [![Type](https://img.shields.io/badge/type-agent%20skill-blueviolet)](#-installation)
 [![Built with](https://img.shields.io/badge/built%20with-bioinfo--skill--creator-orange)](https://github.com/cheahhl814/bioinfo-skill-creator)
 
@@ -9,7 +9,7 @@ Agent-driven orchestration of environmental DNA (eDNA) metabarcoding analysis fo
 **Repository**: https://github.com/cheahhl814/nf-edna-agent
 
 > [!NOTE]
-> Current version: **v1.2.0** (updated 2026-10-08). Renamed from **edna-agent** (the `nf-` prefix marked the removed Nextflow era; see the mirror case `nf-phylogenetics-agent → phylogenetics-agent`).
+> Current version: **v1.3.0** (updated 2026-11-06). Gap-fill from the TBCG2026 QIIME2-course comparison: rarefaction curves, Pielou evenness, a consensus-BLAST classify fallback (no IDTAXA model needed), ANCOM-BC as an alternative DAA, and two new edna-visualize figure stages (alpha boxplots + PCoA/PERMANOVA). Renamed from **edna-agent** (the `nf-` prefix marked the removed Nextflow era; see the mirror case `nf-phylogenetics-agent → phylogenetics-agent`).
 
 ## Contents
 
@@ -95,7 +95,7 @@ Auxiliary sub-skills (independent, chainable):
 |:----------|:--------|
 | `idtaxa-training/` | Train a DECIPHER IDTAXA classifier from a reference FASTA (NCBI headers → DECIPHER headers → trained `.rds`) |
 | `reference-db/` | Curated download URLs for the 4 marker reference databases + validation + training chain |
-| `edna-visualize/` | Publication-ready figures from the rank count tables |
+| `edna-visualize/` | Publication-ready figures from the rank count tables — plus, in v1.3.0, grouped alpha-diversity boxplots and PCoA ordination + PERMANOVA (optional stages 4–5) |
 
 > [!TIP]
 > Read each sub-skill's `SKILL.md` for the full procedure, its ask-user stop points, and its signature library (stderr pattern → cause → fix).
@@ -111,8 +111,9 @@ All tools are resolved from conda-forge/bioconda via the pinned pixi manifests.
 | `env/denoise/` | NGmerge 0.5, vsearch 2.3x, biom-format, R (argparse, data.table) |
 | `env/decontam/` | julia 1.12 (ArgParse, CSV, DataFrames, FASTX, HypothesisTests), auto-instantiate task |
 | `env/classification/` | R 4.5 + Bioconductor (DECIPHER, TreeSummarizedExperiment, mia 1.18 + rbiom 2.2.1 pin, mia), seqtk |
-| `env/diversity/` | R 4.5 (ape, scater, mia/rbiom 2.2.1, ggplot2), mafft, FastTree |
-| `env/association/` | R 4.5 (Maaslin2, data.table, ggplot2, rbiom 2.2.1 pin) |
+| `env/diversity/` | R 4.5 (ape, scater, mia/rbiom 2.2.1, ggplot2, vegan), mafft, FastTree |
+| `env/association/` | R 4.5 (Maaslin2, ANCOMBC, data.table, ggplot2, rbiom 2.2.1 pin) |
+| `env/visualization/` | R 4.5 (mia, miaViz, sechm, ComplexHeatmap, vegan, rstatix/ggpubr, rbiom 2.2.1) — edna-visualize figures (materialized in v1.3.0) |
 | `env/database/`, `env/geocuration/` | reference/geocuration helpers (rentrez, xml2, etc.) |
 
 Tool usage is grounded in each sub-skill's signature library and the battle-test evidence (two full real-data runs) — the agent reads the documented recipes instead of guessing flags.
@@ -142,8 +143,8 @@ edna-agent/
 ├── pixi.toml                # Agent runtime env (pixi install)
 ├── params.json              # Render input (skill inventory)
 ├── params/                  # Marker presets: 16s / 18s-v9 / coi / 12s
-├── env/                     # Per-stage tool environments (qc, denoise, decontam, classification, diversity, association, database, geocuration)
-├── bin/                     # Stage + auxiliary scripts (R/Julia/Python), incl. skill-update-check.py, summarise_run.py
+├── env/                     # Per-stage tool environments (qc, denoise, decontam, classification, diversity, association, database, geocuration, visualization)
+├── bin/                     # Stage + auxiliary scripts (R/Julia/Python), incl. consensus_blast_taxonomy.R, ancombc_differential.R, rarefaction.R, skill-update-check.py, summarise_run.py
 ├── preflight/edna-intake/   # Phase 1 sub-skill (SP1–SP7, E1–E7 verdict gate)
 ├── run/edna-run/            # Phase 2 sub-skill (stage ladder + agent-driven recipe tables)
 ├── interpret/edna-interpret/ # Phase 3 sub-skill (report + narrative + Q&A)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Structural smoke tests for the edna-agent meta-skill (v1.2.0).
+"""Structural smoke tests for the edna-agent meta-skill (v1.3.0).
 
 Mirrors the bioinfo-skill-creator battle-test style: router wiring, sub-skill
 frontmatter coherence, envelope-section presence, signature-library
-completeness, recipe coverage, gitignore gate. 24 checks. Plain stdlib; run:
+completeness, recipe coverage, gitignore gate. Plain stdlib; run:
 python3 test_smoke.py --offline
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 RESULTS: list[tuple[str, bool, str]] = []
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 SUBSKILLS = [
     "preflight/edna-intake",
     "run/edna-run",
@@ -111,7 +111,8 @@ def main() -> int:
                  "decontam.jl", "filter_table.jl", "idtaxa_rds.R", "filter_idtaxa_by_confidence.jl",
                  "agglomerate_data.R", "mafft", "fasttree", "root_tree.R", "alpha_diversity.R",
                  "beta_diversity.R", "community_typing.R", "differential_abundance.R",
-                 "correlation_analysis.R"):
+                 "correlation_analysis.R", "consensus_blast_taxonomy.R",
+                 "ancombc_differential.R", "rarefaction.R"):
         check(f"run recipes cover {tool}", tool in run_text)
     check("run recipes wire the julia instantiate workaround",
           "Pkg.instantiate()" in run_text)
@@ -120,7 +121,12 @@ def main() -> int:
     check("run recipes use lowercase DAA rank", '"genus"' in run_text)
     check("run recipes include marker-sanity check",
           "Marker-sanity check" in run_text or "marker-sanity" in run_text.lower())
-    for env in ("env/qc", "env/denoise", "env/decontam", "env/classification", "env/diversity", "env/association"):
+    check("run recipes cover the consensus-BLAST classify path",
+          "consensus-BLAST" in run_text and "--p-min-consensus" not in run_text.split("Alternative classify")[0])
+    check("run recipes cover ANCOM-BC DAA option", "ancombc_differential.R" in run_text)
+    check("run recipes cover rarefaction", "rarefaction.R" in run_text)
+    check("run recipes have SP5 classification-path stop point", "SP5" in run_text)
+    for env in ("env/qc", "env/denoise", "env/decontam", "env/classification", "env/diversity", "env/association", "env/visualization"):
         check(f"stage envs exist: {env}/pixi.toml", (ROOT / env / "pixi.toml").exists())
 
     print("== Binary scripts referenced by recipes ==")
@@ -129,6 +135,8 @@ def main() -> int:
                    "bin/agglomerate_data.R", "bin/alpha_diversity.R", "bin/beta_diversity.R",
                    "bin/community_typing.R", "bin/differential_abundance.R",
                    "bin/correlation_analysis.R", "bin/root_tree.R",
+                   "bin/consensus_blast_taxonomy.R", "bin/ancombc_differential.R",
+                   "bin/rarefaction.R",
                    "bin/summarise_run.py", "bin/skill-update-check.py"):
         check(f"{script} exists", (ROOT / script).exists())
 

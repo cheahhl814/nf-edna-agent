@@ -2,19 +2,23 @@
 name: eDNA-visualize
 description: >-
   Publication-ready figure generation for environmental DNA (eDNA) metabarcoding
-  analysis. Wraps three stages (1) raw counts → relative-abundance normalization via
+  analysis. Wraps five stages (1) raw counts → relative-abundance normalization via
   `normalize_abundance.R`, (2) CLR-transformed ComplexHeatmap heatmaps at
   Phylum/Family/Genus levels via `plot_heatmaps.R`, (3) high-contrast stacked-bar
-  charts with rare-taxa lumping via `plot_stacked_bar.R`. Accepts any 4-level count
+  charts with rare-taxa lumping via `plot_stacked_bar.R`, (4) grouped
+  alpha-diversity boxplots via `plot_alpha_boxplot.R` (optional; v1.3.0), and
+  (5) PCoA ordination + PERMANOVA via `plot_ordination.R` (optional; v1.3.0, from
+  the TBCG2026-course gap review). Accepts any 4-level count
   table (edna-agent output OR any mia-compatible TSE). Mirrors the BettaMt
   ask-user-stop-points pattern. Use when the user asks to make eDNA figures, plot
   heatmap of microbial communities, stacked bar chart of ASVs, publication-ready
   eDNA plot, CLR heatmap, normalize ASV counts, Phylum/Family/Genus composition
-  plot, or I have agglomerated counts, make figures. Pairs with `edna-agent`
+  plot, eDNA ordination/PCoA, alpha diversity boxplot, or I have agglomerated
+  counts, make figures. Pairs with `edna-agent`
   (upstream: produces the count tables) and `idtaxa-training` (sibling: produces
   the model used to generate classifications).
-version: 1.2.0
-updated: "2026-10-08"
+version: 1.3.0
+updated: "2026-11-06"
 triggers:
   - "make eDNA figures"
   - "plot heatmap of microbial communities"
@@ -29,6 +33,8 @@ triggers:
   - "mia visualization"
   - "ComplexHeatmap for microbiome"
   - "Community composition figure"
+  - "eDNA ordination"
+  - "eDNA PCoA"
 requires:
   - "R ≥ 4.2 with mia, miaViz, sechm, ComplexHeatmap, data.table, argparse, ggplot2, S4Vectors"
   - "pixi (curl -fsSL https://pixi.sh/install.sh | bash) — manages per-stage tool envs under env/"
@@ -36,7 +42,7 @@ requires:
 
 # Sub-Skill: eDNA-visualize
 
-> **v1.0.0.** Wraps three end-to-end stages for generating publication-ready eDNA figures: (1) counts → relative-abundance normalization, (2) CLR-transformed ComplexHeatmap heatmaps at 3 taxonomic levels, (3) high-contrast stacked-bar charts with rare-taxa lumping. Accepts any 4-level count table (edna-agent output OR any mia-compatible TSE). Built on the `mia` Bioconductor ecosystem (TreeSummarizedExperiment + miaViz + sechm + ComplexHeatmap).
+> **v1.3.0.** Wraps five stages for generating publication-ready eDNA figures: (1) counts → relative-abundance normalization, (2) CLR-transformed ComplexHeatmap heatmaps at 3 taxonomic levels, (3) high-contrast stacked-bar charts with rare-taxa lumping, and (v1.3.0, optional) (4) grouped alpha-diversity boxplots via `plot_alpha_boxplot.R` + (5) PCoA ordination + PERMANOVA via `plot_ordination.R` — added from the TBCG2026 QIIME2-course gap review (the course ships `Qiime2R-boxplotalpha.R` + Emperor PCoA views, which the skill previously lacked). Accepts any 4-level count table (edna-agent output OR any mia-compatible TSE). Built on the `mia` Bioconductor ecosystem (TreeSummarizedExperiment + miaViz + sechm + ComplexHeatmap) with vegan for ordination. Runs under `env/visualization/` (materialized at the skill root in v1.3.0 — the recipes previously referenced a path that no longer existed after the v1.2.0 runner hoist).
 >
 > **This SKILL.md is a router.** It does not duplicate logic from the sub-skills. Its job is to ask: *what stage is the user at, and which sub-skill should they invoke next?*
 
@@ -44,7 +50,7 @@ requires:
 
 This sub-skill serves two simultaneous audiences:
 
-1. **AI Coding Agents** — triggered by the phrases above. The agent must follow the strict evidence chain (Preflight → Run), respect the ask-user stop points (SP1–SP5 in preflight, SP1–SP4 in run), and write the artifacts each sub-skill specifies.
+1. **AI Coding Agents** — triggered by the phrases above. The agent must follow the strict evidence chain (Preflight → Run), respect the ask-user stop points (SP1–SP5 in preflight, SP1–SP6 in run), and write the artifacts each sub-skill specifies.
 2. **Human bioinformaticians** — read this document as a guide. The sections explain *why* each stage exists and what the trade-offs are.
 
 ## When to Use This Skill
@@ -134,9 +140,11 @@ If auto-detection is ambiguous, ask the user one short question (see **SP0** in 
 | `stacked_bar_chart_phylum.pdf` | PDF | `plot_stacked_bar.R` (run SP4) | Stacked bar (Phylum, top-20) |
 | `stacked_bar_chart_family.pdf` | PDF | `plot_stacked_bar.R` | Stacked bar (Family, top-20) |
 | `stacked_bar_chart_genus.pdf` | PDF | `plot_stacked_bar.R` | Stacked bar (Genus, top-20) |
-| `run_summary.json` | JSON | this skill (run SP5) | Compact, LLM-loadable summary |
+| `alpha_boxplot_<metric>.pdf` | PDF | `plot_alpha_boxplot.R` (run SP5, optional) | Grouped alpha-diversity boxplot (v1.3.0) |
+| `pcoa_<distance>.pdf` / `pcoa_coordinates_<distance>.tsv` / `permanova_<distance>.txt` | PDF/TSV | `plot_ordination.R` (run SP6, optional) | PCoA ordination + PERMANOVA (v1.3.0) |
+| `run_summary.json` | JSON | this skill (run SP7) | Compact, LLM-loadable summary |
 
-## 3. The 3-stage workflow
+## 3. The 5-stage workflow (stages 4–5 optional)
 
 ```
    ┌──────────────────────────────────────────┐
@@ -154,7 +162,17 @@ If auto-detection is ambiguous, ask the user one short question (see **SP0** in 
    ┌──────────────────────────────────────────┐
    │ Stage 3: stacked bars                    │
    │ (plot_stacked_bar.R)                     │   ← miaViz plotAbundance
-   └──────────────────────────────────────────┘     top-N + Other
+   └────────────────────┬─────────────────────┘     top-N + Other
+                        ▼
+   ┌──────────────────────────────────────────┐
+   │ Stage 4 (optional): alpha boxplots       │
+   │ (plot_alpha_boxplot.R)                   │   ← needs alpha_diversity_metrics.tsv
+   └────────────────────┬─────────────────────┘
+                        ▼
+   ┌──────────────────────────────────────────┐
+   │ Stage 5 (optional): PCoA ordination      │
+   │ (plot_ordination.R)                      │   ← bray/jaccard/unifrac + PERMANOVA
+   └──────────────────────────────────────────┘
 ```
 
 **Stage 1** is required (the heatmaps and stacked bars expect relative-abundance input, not raw counts).
@@ -196,7 +214,9 @@ Phases:
 - SP2 — **Stage 1**: `pixi run --manifest-path env/visualization/pixi.toml Rscript bin/normalize_abundance.R ...`
 - SP3 — **Stage 2**: `pixi run ... Rscript bin/plot_heatmaps.R ...` (heatmaps)
 - SP4 — **Stage 3**: `pixi run ... Rscript bin/plot_stacked_bar.R ...` (stacked bars)
-- SP5 — Write `run_summary.json` for downstream consumers
+- SP5 — **Stage 4 (optional)**: `pixi run ... Rscript bin/plot_alpha_boxplot.R ...` (needs the diversity stage's `alpha_diversity_metrics.tsv`; skipped without failing when absent)
+- SP6 — **Stage 5 (optional)**: `pixi run ... Rscript bin/plot_ordination.R ...` (bray/jaccard/unifrac; skipped without failing when inputs absent)
+- SP7 — Write `run_summary.json` for downstream consumers
 
 ## 6. Where this fits in the wider skill graph
 
